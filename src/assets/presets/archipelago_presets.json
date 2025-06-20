@@ -1,0 +1,50 @@
+{
+  "dense_archipelago": {
+    "name": "Dense Archipelago",
+    "description": "Many small islands with detailed coastlines - perfect for dssstrkl settlements",
+    "parameters": {
+      "island_density": 0.8,
+      "island_size_variation": 0.6,
+      "coastline_detail": 0.7,
+      "water_depth": 0.3,
+      "erosion_softness": 0.6
+    },
+    "use_case": "High-detail environments with multiple settlement opportunities"
+  },
+  "sparse_islands": {
+    "name": "Sparse Islands",
+    "description": "Few large islands with simple coastlines - ideal for major settlements",
+    "parameters": {
+      "island_density": 0.3,
+      "island_size_variation": 0.9,
+      "coastline_detail": 0.4,
+      "water_depth": 0.5,
+      "erosion_softness": 0.4
+    },
+    "use_case": "Focus on major settlements and clear navigation channels"
+  },
+  "game_optimized": {
+    "name": "Game Optimized",
+    "description": "Balanced for real-time rendering in O'Neill space habitats",
+    "parameters": {
+      "island_density": 0.6,
+      "island_size_variation": 0.5,
+      "coastline_detail": 0.5,
+      "water_depth": 0.4,
+      "erosion_softness": 0.5
+    },
+    "use_case": "Optimal performance for game engines while maintaining visual quality"
+  },
+  "dssstrkl_habitat": {
+    "name": "dssstrkl Habitat",
+    "description": "Tailored for alien raptor civilization with perching opportunities",
+    "parameters": {
+      "island_density": 0.7,
+      "island_size_variation": 0.7,
+      "coastline_detail": 0.8,
+      "water_depth": 0.3,
+      "erosion_softness": 0.7
+    },
+    "use_case": "Designed for dssstrkl physiology with cliff perching and territorial zones"
+  }
+}

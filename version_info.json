@@ -1,0 +1,24 @@
+{
+  "archipelago_generator": {
+    "version": "1.0.0",
+    "created": "2025-06-19",
+    "blender_version": "4.0+",
+    "compatibility": "O'Neill Terrain Generator v1.0+",
+    "asset_files": [
+      "archipelago_terrain_generator.blend",
+      "archipelago_metadata.json",
+      "archipelago_presets.json"
+    ],
+    "python_modules": [
+      "archipelago_operators.py",
+      "asset_manager.py"
+    ],
+    "features": [
+      "High-resolution archipelago generation",
+      "Multiple terrain presets",
+      "Game engine optimization",
+      "O'Neill cylinder integration",
+      "Asset management system"
+    ]
+  }
+}

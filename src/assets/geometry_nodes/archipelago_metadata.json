@@ -1,0 +1,32 @@
+{
+  "name": "ONeill_Archipelago_Terrain_Generator",
+  "version": "1.0.0",
+  "description": "Procedural archipelago terrain generator for O'Neill cylinder interiors",
+  "author": "O'Neill Terrain Generator",
+  "blender_version_min": "3.0.0",
+  "node_group_name": "ONeill_Archipelago_Terrain_Generator",
+  "tags": [
+    "terrain",
+    "archipelago",
+    "islands",
+    "procedural",
+    "oneill",
+    "geometry-nodes",
+    "landscape"
+  ],
+  "requirements": {
+    "geometry_nodes": true,
+    "minimum_vertices": 10000,
+    "recommended_vertices": 250000
+  },
+  "usage": {
+    "input_type": "Mesh (Grid/Plane)",
+    "output_type": "Displaced Mesh",
+    "best_practices": [
+      "Use high-subdivision input mesh (256x256+ recommended)",
+      "Apply before other terrain modifiers",
+      "Works best with flat/grid geometry",
+      "Suitable for game engine export"
+    ]
+  }
+}
