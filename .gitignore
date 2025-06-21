@@ -192,3 +192,17 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Development files
+src/dev/
+*.py.bak
+*_dev.py
+
+# Desktop development files  
+/Users/*/Desktop/*oneill*
+~/Desktop/*oneill*
+
+# Blender temp files
+*.blend1
+*.blend2
+*.blend3
