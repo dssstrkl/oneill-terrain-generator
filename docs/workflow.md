@@ -127,3 +127,93 @@ Examples:
 3. **Examples**: Sample O'Neill cylinder .blend files
 4. **Performance**: Optimize for large cylinder counts
 5. **Features**: Additional terrain types and generators
+
+### Development Branch Workflow - Updated June 21, 2025
+
+#### **Daily Development Workflow - Enhanced**
+
+##### **Development Environment Setup**
+```bash
+cd "/Users/dssstrkl/Documents/Projects/oneill terrain generator"
+
+# Create feature branch for new development
+git checkout -b feature/modular-geometry-nodes
+
+# Development files are in src/dev/
+# Stable files remain in src/
+```
+
+##### **Development File Structure**
+```
+oneill terrain generator/
+├── src/
+│   ├── oneill_heightmap_terrain.py          # ← STABLE VERSION (production)
+│   └── dev/
+│       └── oneill_heightmap_terrain_dev.py  # ← DEVELOPMENT VERSION (testing)
+├── .gitignore                               # ← Updated for dev files
+└── [rest of project]
+```
+
+##### **Development Version Features**
+- **Clear Identification**: Add-on name shows "[DEV]" suffix
+- **Visual Warnings**: Red alert box in UI showing development status
+- **Console Logging**: Enhanced registration messages with file path info
+- **Debug Information**: UI shows version, branch, and asset system status
+
+##### **Making Changes - Enhanced Workflow**
+```bash
+# 1. Work in development version
+# Edit: src/dev/oneill_heightmap_terrain_dev.py
+
+# 2. Test in Blender
+# Install from: /Users/dssstrkl/Documents/Projects/oneill terrain generator/src/dev/oneill_heightmap_terrain_dev.py
+
+# 3. Commit development changes
+git add src/dev/oneill_heightmap_terrain_dev.py
+git commit -m "dev: test unified heightmap system"
+
+# 4. When stable, promote to main version
+cp src/dev/oneill_heightmap_terrain_dev.py src/oneill_heightmap_terrain.py
+git add src/oneill_heightmap_terrain.py
+git commit -m "feat: v2.1 - unified heightmap system"
+
+# 5. Push and merge
+git push origin feature/modular-geometry-nodes
+```
+
+#### **Version Control Best Practices - Updated**
+
+##### **Branch Strategy**
+- **main**: Stable, production-ready versions only
+- **feature/[name]**: Development branches for new features
+- **src/dev/**: Development files that can be safely modified
+
+##### **File Safety Rules**
+- ✅ **Safe to modify**: `src/dev/oneill_heightmap_terrain_dev.py`
+- ⚠️ **Careful with**: `src/oneill_heightmap_terrain.py` (stable version)
+- ✅ **Test with**: Any .blend files in examples/
+
+##### **Development Indicators**
+When working with development version, you'll see:
+- **Blender Add-on Name**: "O'Neill Cylinder Heightmap Terrain [DEV]"
+- **UI Warning**: Red alert box showing "🚧 DEVELOPMENT VERSION v2.0"
+- **Console Messages**: "🚧 This is a DEVELOPMENT version for testing"
+- **Debug Info**: Version, branch, and asset system status in UI
+
+##### **Testing Workflow**
+```bash
+# Always test development version first
+1. Install src/dev/oneill_heightmap_terrain_dev.py in Blender
+2. Verify red development warning appears in UI
+3. Test new features thoroughly
+4. Commit development changes with "dev:" prefix
+5. Only promote to stable when thoroughly tested
+```
+
+#### **Safety Features**
+- **Visual Separation**: Impossible to confuse dev vs stable versions
+- **Console Warnings**: Clear development status during registration
+- **File Structure**: Clean separation prevents accidental overwrites
+- **Git Workflow**: Feature branches protect main branch stability
+
+This enhanced workflow ensures safe development while maintaining a stable production version.

@@ -144,3 +144,41 @@ STATUS: Ready for git commit as major version milestone
 WORKFLOW: All 5 steps functional with modular geometry nodes integration
 ASSETS: Successfully using existing archipelago_terrain_generator.blend
 
+=== DEVELOPMENT WORKFLOW ESTABLISHED - 2025-06-21 ===
+
+DEVELOPMENT BRANCH SYSTEM IMPLEMENTED:
+
+PROJECT STRUCTURE:
+- Main stable version: src/oneill_heightmap_terrain.py (40KB)
+- Development version: src/dev/oneill_heightmap_terrain_dev.py ✅
+- Assets working: src/assets/geometry_nodes/archipelago_terrain_generator.blend (1.1MB)
+- Git repository: Properly initialized with version control ready
+
+DEVELOPMENT VERSION FEATURES:
+- Add-on name clearly marked: "O'Neill Cylinder Heightmap Terrain [DEV]"
+- Visual indicators: Red alert box showing "🚧 DEVELOPMENT VERSION v2.0"
+- Console logging: Enhanced registration messages with dev branch awareness
+- UI debug info: Shows version, branch, and asset system status
+- File path awareness: Knows it's loading from src/dev/ location
+
+WORKFLOW SEPARATION:
+✅ Development: src/dev/oneill_heightmap_terrain_dev.py (for testing)
+✅ Stable: src/oneill_heightmap_terrain.py (for production)
+✅ Assets: Working modular geometry nodes import system
+✅ Git: Ready for feature branch development and merging
+
+DEVELOPMENT SAFETY:
+- Impossible to confuse dev vs stable versions
+- Clear visual indicators in Blender UI
+- Console warnings about development status
+- Proper git branching workflow established
+
+NEXT DEVELOPMENT TARGETS:
+- Issue #3: Unified heightmap system across multiple objects
+- Issue #4: Interior surface detection for selective displacement
+- Testing framework for dev branch validation
+
+STATUS: Development workflow properly established, ready for advanced feature development
+
+---
+
