@@ -82,3 +82,69 @@
 
 ---
 *Update this document immediately when issues are resolved or new issues discovered.*
+
+## Version 2.0 Update - June 21, 2025
+
+### 🎉 MAJOR MILESTONE: Modular Geometry Nodes Integration
+
+#### ✅ **COMPLETED IN v2.0:**
+
+**Modular Asset System:**
+- GeometryNodesAssetManager successfully implemented
+- Assets automatically discovered from `src/assets/geometry_nodes/`
+- Working import from existing `archipelago_terrain_generator.blend`
+- Project-aware path detection works from any .blend file in project
+
+**UI/UX Improvements:**
+- Visual workflow indicators with ✅ checkmarks and blue buttons
+- Undo functionality for rewrap operations (ONEILL_OT_UndoRewrap)
+- Asset status display shows available geometry node assets
+- Enhanced workflow clarity with completion status
+
+**Technical Integration:**
+- Successfully imports and applies geometry nodes from project assets
+- Live preview system works with modular node groups
+- Robust fallback system if assets unavailable
+- Console logging for debugging asset import process
+
+#### 🔧 **CURRENT WORKFLOW STATUS:**
+1. ✅ **Align Cylinders** - Working perfectly
+2. ✅ **Unwrap to Flat** - Creates proper flat grids  
+3. ✅ **Create Heightmaps** - Generates raster images with materials
+4. ✅ **Setup Geometry Nodes** - Imports and applies modular assets
+5. ✅ **Generate Terrain** - Live preview with real-time updates
+6. ✅ **Rewrap to Cylinders** - Creates final terrain (with undo option)
+
+#### 🎯 **CRITICAL ISSUES IDENTIFIED:**
+
+**Priority 1: Seam Awareness (Hard)**
+- **Problem:** Heightmaps created per-object cause visible seams between segments
+- **Impact:** Breaks terrain continuity across O'Neill cylinder sections
+- **Solution:** Unified heightmap system with smart UV subdivision per object
+
+**Priority 2: Interior Surface Detection (Hard)**  
+- **Problem:** Terrain applies to all surfaces instead of interior only
+- **Impact:** Ruins O'Neill cylinder habitat realism
+- **Solution:** Detect interior faces and apply displacement selectively
+
+#### 🚀 **NEXT DEVELOPMENT PHASE:**
+
+**v2.1 Goals:**
+- [ ] Unified heightmap system across multiple cylinder objects
+- [ ] Interior surface detection for selective terrain application
+- [ ] Enhanced testing with real O'Neill cylinder geometry
+
+**v2.2+ Future:**
+- [ ] Multiple geometry node asset types (erosion, vegetation, weather)
+- [ ] Advanced biome system for different cylinder sections
+- [ ] Export pipeline optimization for game engine integration
+
+#### 📊 **Project Health:**
+- **Asset Pipeline:** ✅ Working and modular
+- **Core Workflow:** ✅ Complete end-to-end functionality  
+- **UI/UX:** ✅ Clear visual feedback and undo capabilities
+- **Technical Debt:** Manageable, focused on seam and surface issues
+- **Documentation:** ✅ Up to date with current progress
+
+**Status:** Ready for git commit as major version milestone. Core modular system established, ready to tackle advanced technical challenges.
+

@@ -195,3 +195,126 @@ print("ONEILL_OT_UpdateTerrainScale in types:", hasattr(bpy.types, 'ONEILL_OT_Up
 
 ---
 *Prevention is better than cure - always use working assets as foundation.*
+
+## Version 2.0 Troubleshooting Updates
+
+### ✅ RESOLVED ISSUES
+
+#### Geometry Nodes Import Problems - RESOLVED
+**Previous Issue:** Geometry nodes setup failing, couldn't load terrain displacement
+**Solution Implemented:** GeometryNodesAssetManager with modular import system
+- Assets automatically discovered from `src/assets/geometry_nodes/`
+- Multiple fallback options for node group names
+- Project-aware path detection works from any .blend file location
+- Working import from `archipelago_terrain_generator.blend`
+
+#### UI Workflow Clarity - RESOLVED  
+**Previous Issue:** No visual feedback for completed workflow steps
+**Solution Implemented:** Visual completion indicators
+- ✅ Checkmarks for completed steps
+- Blue "depressed" button styling for finished operations
+- Clear progression through 5-step workflow
+
+#### No Undo for Rewrap - RESOLVED
+**Previous Issue:** Couldn't undo rewrap if results unsatisfactory
+**Solution Implemented:** ONEILL_OT_UndoRewrap operator
+- Removes terrain objects and restores flat objects
+- Smart UI integration (undo button appears after rewrap)
+- Preserves workflow state for iteration
+
+### 🔧 CURRENT KNOWN ISSUES
+
+#### Issue: Terrain Seams Between Objects (Critical)
+**Symptoms:**
+- Visible height discontinuities between cylinder segments
+- Each object gets separate heightmap causing mismatched terrain
+- Breaks realism across multiple O'Neill cylinder sections
+
+**Diagnosis:**
+- Heightmaps created per-object without consideration for neighbors
+- UV mapping doesn't account for position in overall cylinder sequence
+- No coordination between adjacent segment terrain generation
+
+**Workaround:** 
+- Use single cylinder object when possible
+- Manual heightmap editing to match seams
+
+**Planned Fix:** Unified heightmap system with smart UV subdivision
+
+#### Issue: Terrain on Wrong Surfaces (Critical)
+**Symptoms:**
+- Displacement applies to both interior AND exterior cylinder surfaces
+- Exterior of O'Neill cylinder gets terrain (should remain smooth)
+- Breaks the habitat design where terrain should be interior-only
+
+**Diagnosis:**
+- Geometry nodes apply to all mesh faces uniformly
+- No face selection for interior vs exterior surfaces
+- Displacement modifier affects entire mesh
+
+**Workaround:**
+- Manual face selection and separate displacement (complex)
+- Use separate objects for interior/exterior (not ideal)
+
+**Planned Fix:** Interior surface detection with selective displacement
+
+#### Issue: Asset Discovery Sensitivity
+**Symptoms:**
+- Asset manager requires specific project folder structure
+- Fails if .blend file not saved in project location
+- Path detection can be fragile with symlinks/aliases
+
+**Diagnosis:**
+- Relies on "oneill terrain generator" string in file path
+- Absolute path assumptions may not work across systems
+
+**Workaround:**
+- Ensure .blend file saved within project structure
+- Use "List Available Assets" to verify detection
+
+**Fix Status:** Working but could be more robust
+
+### 🔍 DEBUGGING TIPS
+
+#### Geometry Nodes Issues:
+1. Use "List Available Assets" button to verify asset discovery
+2. Check console for detailed import logging
+3. Verify `archipelago_terrain_generator.blend` exists in `src/assets/geometry_nodes/`
+4. Ensure .blend file saved within project structure
+
+#### Terrain Quality Issues:
+1. Check heightmap resolution setting (1024x1024 recommended)
+2. Verify terrain scale multiplier not set too high/low
+3. Use undo functionality to iterate on terrain settings
+4. Monitor viewport performance with high subdivision levels
+
+#### Workflow State Issues:
+1. Visual indicators show which steps completed
+2. Can restart from any step by selecting appropriate objects
+3. Use cleanup_existing() function if registration issues persist
+4. Check object custom properties for workflow metadata
+
+### 💡 PERFORMANCE OPTIMIZATION
+
+#### For Large Cylinder Segments:
+- Start with lower subdivision levels during testing
+- Use 512x512 heightmaps for preview, 2048x2048 for final
+- Disable live preview during heavy terrain generation
+- Consider breaking very long cylinders into smaller segments
+
+#### Memory Management:
+- Remove unused heightmap images periodically
+- Use undo sparingly with large meshes
+- Monitor Blender memory usage with complex geometry nodes
+
+### 🚀 UPCOMING FIXES
+
+#### v2.1 Priority Fixes:
+1. **Unified Heightmap System:** Single heightmap across multiple objects
+2. **Interior Surface Detection:** Selective displacement for interior faces only
+3. **Enhanced Asset Robustness:** Better path detection and error handling
+
+#### Development Process:
+- Each fix will be thoroughly tested with real O'Neill cylinder geometry
+- Maintain backward compatibility with existing workflow
+- Document any breaking changes in upgrade process
