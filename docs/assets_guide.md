@@ -918,3 +918,266 @@ Surface Layer Controls:
 
 *Updated: 2025-06-24*  
 *Next: Complete base terrain collection + implement surface layer painting system*
+
+# Project Assets Guide - Hills Biome Added
+
+## 🆕 NEW: Rolling Hills Biome Available
+
+### `hills` Node Group ✅ PRODUCTION READY
+- **Hills terrain generator** - Gentle rolling landscape perfect for surface layer foundation
+- **Test objects** - Hill_Test_Positive_X and Hill_Test_Negative_X for verification
+- **Surface layer ready** - Ideal base terrain for forest, grassland, and settlement painting
+- **Documentation** - Complete Hills_Documentation text block with usage instructions
+- **Status**: ✅ Production ready, fully tested and verified
+
+#### **Usage Example:**
+```python
+# Apply hills biome to object
+modifier = obj.modifiers.new("Hills_Terrain", 'NODES')
+modifier.node_group = bpy.data.node_groups["hills"]
+
+# Configure gentle rolling parameters
+modifier["Elevation_Gradient"] = 2.0    # Half of canyons for gentle rolling
+modifier["Dramatic_Peak_Height"] = 1.0  # Gentle hills vs dramatic peaks
+modifier["Base_Elevation"] = 2.0        # Moderate baseline
+modifier["Slope_Steepness"] = 0.3       # Very comfortable exploration
+modifier["Detail_Level"] = 1.0          # Standard detail for surface layers
+```
+
+---
+
+## Working Components Available (USE THESE FIRST)
+
+### `src/assets/geometry_nodes/biomes/` ✅ UPDATED STRUCTURE
+```
+biomes/
+├── mountains.blend          # ✅ Rocky peaks, cliff formations (template)
+├── canyons.blend           # ✅ Big Bend style + manual painting ready  
+├── archipelago.blend        # ✅ Island chains (existing)
+├── hills.blend             # ✅ Gentle rolling terrain (NEW!)
+├── desert.blend            # ⏳ Dune formations (planned)
+└── ocean.blend             # ⏳ Underwater terrain (planned)
+```
+
+### **Hills Biome Characteristics**
+- **Gentle rolling landscape**: Half the elevation intensity of canyons (2.0 vs 4.0)
+- **Surface layer foundation**: Perfect base terrain for painting forests, grasslands, settlements
+- **Comfortable exploration**: Very soft slopes (0.3 steepness) ideal for movement
+- **Wide valley floors**: Excellent areas for water features and civilization placement
+
+---
+
+## Surface Layer Architecture Integration
+
+### **Hills + Surface Layer Combinations**
+
+#### **🌄 Hills + Forest Surface Layer**
+```
+Asset Combination: Hills Base + Forest Surface
+├── Base Asset: hills.blend
+│   ├── Apply hills biome to object
+│   ├── Configure gentle rolling parameters
+│   └── Generate smooth hill landscape
+├── Surface Layers:
+│   ├── Forest Layer: Paint varied density following hill contours
+│   ├── Clearings: Paint settlement areas and meadows
+│   ├── Water Features: Paint streams in valley areas
+│   └── Civilization: Paint road network through forest
+└── Result: Classic fantasy forest landscape with elevation
+
+Usage Benefits:
+├── Rolling elevation changes through forest exploration
+├── Hidden clearings and settlements to discover
+├── Stream crossings and valley navigation
+└── Natural forest density variation across hills
+```
+
+#### **🌾 Hills + Grassland + Water Features**
+```
+Asset Combination: Hills Base + Multiple Surfaces
+├── Base Asset: hills.blend (gentle rolling foundation)
+├── Surface Layers:
+│   ├── Grassland Layer: Paint meadows on slopes and valleys
+│   ├── Water Features: Paint streams following valley contours
+│   ├── Civilization: Paint scattered settlements and paths
+│   └── Forest Edges: Paint tree lines and woodland borders
+└── Result: Pastoral landscape with natural water flow
+
+Gameplay Benefits:
+├── Realistic water flow following terrain naturally
+├── Settlement placement in logical valley areas
+├── Grassland density variation with elevation
+└── Mixed ecosystem with forest, meadow, and water zones
+```
+
+#### **🏛️ Hills + Civilization + Mixed Ecosystems**
+```
+Asset Combination: Hills Base + Complex Surface Layers
+├── Base Asset: hills.blend (foundation terrain)
+├── Surface Layers:
+│   ├── Civilization: Paint roads, settlements, cleared areas
+│   ├── Forest Layer: Paint woodland around settlements
+│   ├── Grassland: Paint agricultural and grazing areas
+│   ├── Water Features: Paint rivers, streams, ponds
+│   └── Transition Zones: Paint ecosystem boundaries
+└── Result: Inhabited landscape with realistic development
+
+Strategic Benefits:
+├── Transportation routes following natural terrain
+├── Settlement placement in optimal valley locations
+├── Resource areas (forest, grassland, water) logically distributed
+└── Defensive and trade route considerations in terrain design
+```
+
+---
+
+## 🔧 Updated Asset Usage Rules
+
+### 🚨 **ALWAYS DO THIS:**
+1. **Check biomes/ directory FIRST** for modular geometry nodes
+2. **Use hills node group** for gentle rolling terrain foundation
+3. **Apply base hills terrain** before planning surface layer painting
+4. **Reference test objects** for verified parameter configurations
+5. **Maintain standardized biome interface** for system compatibility
+
+### ❌ **NEVER DO THIS:**
+1. **Create rolling terrain from scratch** when hills node group exists
+2. **Mix multiple biome modifiers** on same object (use biome compositor instead)
+3. **Modify hills node group directly** (create variations as separate files)
+4. **Skip base terrain generation** before surface layer painting
+5. **Ignore gradient direction** (away from origin = higher baseline)
+
+---
+
+## 🎯 Hills Asset Import Methods
+
+### **Current Hills Implementation:**
+```python
+# Get hills node group (in current scene)
+if "hills" in bpy.data.node_groups:
+    hills_ng = bpy.data.node_groups["hills"]
+    
+    # Apply hills terrain
+    modifier = target_object.modifiers.new("Hills_Terrain", 'NODES')
+    modifier.node_group = hills_ng
+    
+    # Gentle rolling configuration
+    modifier["Elevation_Gradient"] = 2.0     # Half of canyons for gentleness
+    modifier["Dramatic_Peak_Height"] = 1.0   # Gentle rolling features
+    modifier["Base_Elevation"] = 2.0         # Moderate baseline
+    modifier["Slope_Steepness"] = 0.3        # Very comfortable exploration
+    modifier["Detail_Level"] = 1.0           # Standard detail for surface layers
+    
+    print("✅ Hills base terrain applied - ready for surface layer painting")
+```
+
+### **Future Hills + Surface Layer Workflow:**
+```python
+# Phase 1: Apply base hills terrain (currently available)
+apply_hills_base_terrain(target_object)
+
+# Phase 2: Paint surface layers (future implementation)
+paint_forest_layer(target_object, density_map, tree_types)
+paint_water_features(target_object, stream_network, pond_locations)
+paint_civilization(target_object, settlement_areas, road_network)
+
+# Phase 3: Generate final combined terrain
+generate_final_terrain_with_all_layers(target_object)
+```
+
+---
+
+## 📊 Asset Development Progress
+
+### **Production Ready Base Terrain:**
+- **mountains.blend** - ✅ Rocky peaks, cliff formations (template)
+- **canyons.blend** - ✅ Big Bend + Zelda rolling canyon terrain
+- **archipelago.blend** - ✅ Island chains with water level integration
+- **hills.blend** - ✅ Gentle rolling terrain (NEW!)
+- **Test objects included** - ✅ Verified parameter configurations
+- **Standardized interface** - ✅ Compatible with biome system architecture
+- **Surface layer ready** - ✅ Foundation for painting surface features
+
+### **Development Quality (Next Priority):**
+- **desert.blend** - ⏳ Dune formations and rocky outcrops (next development)
+- **ocean.blend** - ⏳ Underwater terrain with depth variation (planned)
+
+### **Surface Layer System (Designed, Ready for Implementation):**
+- **Forest layer architecture** - ✅ Complete specification ready
+- **Multi-layer heightmap system** - ✅ Technical architecture complete
+- **Hills surface layer compatibility** - ✅ Verified foundation terrain
+- **Water features layer** - ⏳ Rivers, lakes, streams system planned
+- **Civilization layer** - ⏳ Paths, clearings, settlements planned
+
+---
+
+## 🚀 Enhanced Development Workflow
+
+### **1. Hills Asset Development Phase:**
+```python
+# Hills biome development complete
+import_hills_biome()
+configure_gentle_rolling_parameters()
+test_with_proper_coordinate_objects()
+verify_surface_layer_foundation_compatibility()
+document_usage_patterns_and_specifications()
+```
+
+### **2. Hills Asset Integration Phase:**
+- Apply hills node group to target objects
+- Configure gentle rolling parameters for base terrain
+- Verify gradient direction and exploration comfort
+- Prepare for surface layer painting phase
+
+### **3. Hills + Surface Layer Development Phase (Future):**
+- Design surface layer network layout on hills foundation
+- Paint forest coverage, water features, civilization areas
+- Test navigation and ecosystem interactions
+- Refine surface layer density and placement for optimal gameplay
+
+### **4. Hills Asset Finalization Phase:**
+- Generate final terrain with painted surface layers
+- Test exploration and navigation throughout ecosystem
+- Document successful surface layer configurations
+- Save variations for reuse in other habitat areas
+
+---
+
+## 🔍 Troubleshooting Hills Assets
+
+### **Issue**: Hills terrain looks too flat or similar to other biomes
+**Solution**: Verify hills node group parameters - Elevation_Gradient should be 2.0 (half of canyons 4.0), Dramatic_Peak_Height should be 1.0 for gentle rolling
+
+### **Issue**: Need specific surface layer placement on hills
+**Solution**: Use base hills terrain + plan surface layer painting implementation for exact ecosystem control
+
+### **Issue**: Hills gradient direction wrong  
+**Solution**: Hills use same X-axis gradient as other biomes (away from origin = higher). Check object positioning at ±20 world coordinates and parameter signs.
+
+### **Issue**: Hills not gentle enough for comfortable exploration
+**Solution**: Reduce Slope_Steepness to 0.3 or lower, ensure Dramatic_Peak_Height is 1.0 or less for very gentle rolling characteristics
+
+---
+
+## 🎯 Hills Asset Quality Indicators
+
+### ✅ **Production Ready:**
+- **hills.blend** - ✅ Gentle rolling terrain with surface layer foundation
+- **Hill test objects** - ✅ Verified at ±20 world coordinate positions
+- **Parameter optimization** - ✅ Half intensity of canyons for comfortable exploration
+- **Surface layer compatibility** - ✅ Perfect foundation for forest, grassland, civilization
+- **Documentation complete** - ✅ Hills_Documentation text block with usage instructions
+
+### 📋 **Usage Verification:**
+- **Gradient direction** - ✅ Away from origin = higher (biome system standard)
+- **Elevation characteristics** - ✅ Gentle rolling (relief ≤ 4.0)
+- **Exploration comfort** - ✅ Very soft slopes ideal for movement
+- **Surface layer readiness** - ✅ Wide valleys and gentle slopes perfect for painting
+- **Integration compatibility** - ✅ Standardized interface matches other biomes
+
+---
+
+**Key Update**: Hills biome now available as production-ready asset with complete documentation and surface layer foundation capabilities. Perfect gentle terrain for forest surface layer painting in O'Neill cylinder habitats.
+
+*Updated: 2025-06-25*  
+*Next: Complete desert and ocean biomes + implement surface layer painting system*
