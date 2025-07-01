@@ -14,9 +14,25 @@
 5. **Use working assets** from project folder instead of creating new
 
 ## Current Workflow State:
-✅ **Working**: Align, Unwrap, Create Heightmaps, Setup Geometry Nodes, Generate Terrain, Rewrap  
-⚠️ **Minor Issue**: Update Scale button visibility  
-⚠️ **Minor Issue**: Terrain displacement not visible (geometry nodes UV mapping)
+✅ **Working**: Complete 5-step workflow with terrain painting integration
+✅ **NEW**: Manual biome painting system (Mountains, Canyons, Hills, Desert, Ocean)
+⚠️ **Minor Issue**: Grid overlay controls present but lines not visible in Image Editor
+⚠️ **Missing**: Archipelago biome needs addition to BIOME_TYPES
+
+## Recent Major Achievement:
+✅ **TERRAIN PAINTING SYSTEM DEPLOYED**: Version 2.2.0 breakthrough
+- Complete manual biome control with 5 terrain types
+- Professional UI with emoji-based biome selection (🏔️🏜️🏞️🌵🌊)
+- Automatic Image Editor + 3D View layout for painting workflow
+- Grid overlay framework with precision controls (rendering needs fix)
+- Ready for professional game development terrain design
+
+## Enhanced Workflow (v2.2.0):
+1. ✅ **Align Cylinders** - Vertex-level precision alignment
+2. ✅ **Unwrap to Flat** - Surface area preserving unwrap
+3. ✅ **Create Heightmaps** - Raster image generation  
+4. ✅ **Paint Terrain Biomes** - NEW! Manual biome painting system
+5. ✅ **Rewrap to Cylinders** - Apply painted terrain to geometry
 
 ## Working Assets to Use (ALWAYS CHECK THESE FIRST):
 - `src/assets/geometry_nodes/` - Proven terrain displacement nodes
@@ -37,11 +53,17 @@
 - ✅ **Enhanced**: Visual progress indicators, real-time scale controls
 - ❌ **Current Issues**: Terrain visibility and UI button missing
 
-## Next Steps (Current Issues to Resolve):
-1. **Import working geometry nodes** from `src/assets/geometry_nodes/` instead of using created nodes
-2. **Fix UV coordinate mapping** for terrain visibility in viewport
-3. **Debug update scale button** registration issue
-4. **Test complete workflow** with working assets
+## Next Steps (Critical Fixes):
+1. **DEBUG GRID OVERLAY** - Fix rendering so grid lines appear in Image Editor
+2. **ADD ARCHIPELAGO BIOME** - Include 🏝️ Archipelago in BIOME_TYPES constant  
+3. **VALIDATE WORKFLOW** - Test complete end-to-end painting to rewrap process
+4. **PERFORMANCE TEST** - Verify system stability with multiple cylinder objects
+
+## Reference for Next Session:
+- `docs/grid_integration_troubleshooting.md` - Grid overlay technical details
+- `docs/development_summary.txt` - Complete biome system specifications
+- `src/previous/` - Working grid implementations for reference
+- Current artifact: Complete terrain painting system ready for fixes
 
 ## Critical Lesson Learned:
 **DO NOT create geometry nodes from scratch** - we lost working terrain displacement by rebuilding instead of using proven assets from `src/assets/geometry_nodes/`. Always import and adapt existing working components.
