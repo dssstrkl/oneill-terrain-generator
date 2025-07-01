@@ -469,3 +469,33 @@ Line 823: Statements must be separated by newlines or semicolons
 **Status**: Grid overlay system architecturally complete, ready for clean syntax generation in next session.  
 **Priority**: CRITICAL - Clean artifact generation required for deployment.  
 **Next Action**: Start fresh conversation with minimal working base approach.
+
+## 🚨 **CRITICAL DEVELOPMENT RULE** 
+
+### **ALWAYS USE EXISTING CODE AS FOUNDATION**
+
+#### ✅ **Correct Approach:**
+1. **Start with working builds** - Use existing functional code
+2. **Fix specific issues only** - Target precise problems
+3. **Preserve working features** - Don't break what works
+4. **Minimal changes** - Make smallest fix necessary
+5. **Build incrementally** - Add features to working base
+
+#### ❌ **Avoid These Mistakes:**
+1. **Refactoring working code** without explicit request
+2. **Over-engineering solutions** when simple fixes work
+3. **Starting from scratch** when working code exists
+4. **Breaking working features** while adding new ones
+5. **Rewriting entire systems** to fix minor issues
+
+#### **Development Priority Order:**
+1. **Preserve working functionality** (highest priority)
+2. **Fix specific reported issues** 
+3. **Add requested new features**
+4. **Optimize and refactor** (only when explicitly requested)
+
+#### **When Code is "95% Working":**
+- Fix the 5% that's broken
+- DON'T rebuild the 95% that works
+- Syntax cleanup ≠ feature rewrite
+- Target precise issues only

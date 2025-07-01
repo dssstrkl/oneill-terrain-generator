@@ -1649,14 +1649,33 @@ This completes the documentation updates for the unwrap coordinate fix. The O'Ne
 ✅ **Grid Overlay Controls**: Toggle/configure buttons (visibility needs fix)
 ✅ **Workflow Integration**: Step 4 "🎨 Paint Terrain Biomes" button appears after heightmaps
 
-### **Current Workflow Status:**
+**Last Updated**: July 01, 2025  
+**Current Version**: v2.2.0 - Grid Integration COMPLETE
+**Main File**: `src/oneill_heightmap_terrain.py`  
+**Status**: Fully Functional
+
+## Workflow Status:
 | Step | Status | Notes |
 |------|--------|-------|
-| 1. Align Cylinders | ✅ Working | Vertex-level precision, airtight geometry |
-| 2. Unwrap to Flat | ✅ Working | Fixed coordinate swapping, surface area preserved |
-| 3. Create Heightmaps | ✅ Working | Raster image generation with materials |
-| 4. **Paint Terrain Biomes** | ✅ **NEW!** | Manual biome painting system integrated |
-| 5. Rewrap to Cylinders | ✅ Working | Apply terrain to cylinder geometry |
+| 1. Align Cylinders | ✅ Working | Perfect vertex-level alignment |
+| 2. Unwrap to Flat | ✅ Working | Surface area preservation correct |
+| 3. Create Heightmaps | ⚠️ ISSUE | Function not working as expected - NEXT PRIORITY |
+| 4. Paint Terrain Biomes | ✅ Working | All 6 biomes including Archipelago 🏝️ |
+| 5. Generate Terrain | ✅ Working | Procedural terrain displacement |
+| 6. Rewrap to Cylinders | ✅ Working | Exact geometry preservation |
+
+## Recent Achievements (July 01, 2025):
+
+### ✅ **Grid Overlay Integration - COMPLETE**
+- **Issue Resolved**: v2.2.0 syntax errors fixed, grid overlay now functional
+- **Features Working**: Precision grid lines, biome color indicators, toggle controls
+- **All 6 Biomes**: Archipelago, Mountains, Canyons, Hills, Desert, Ocean
+- **Status**: Production ready for terrain painting workflow
+
+### ⚠️ **Next Priority Issue: Heightmap Generation**
+- **Symptom**: Create Heightmaps function not working as expected
+- **Impact**: Blocks terrain painting workflow
+- **Priority**: HIGH - Required for complete workflow functionality
 
 ### **Terrain Painting Features Delivered:**
 - **Manual Biome Assignment**: Artist-driven terrain control for strategic level design

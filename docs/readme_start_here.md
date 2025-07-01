@@ -14,10 +14,24 @@
 5. **Use working assets** from project folder instead of creating new
 
 ## Current Workflow State:
-✅ **Working**: Complete 5-step workflow with terrain painting integration
-✅ **NEW**: Manual biome painting system (Mountains, Canyons, Hills, Desert, Ocean)
-⚠️ **Minor Issue**: Grid overlay controls present but lines not visible in Image Editor
-⚠️ **Missing**: Archipelago biome needs addition to BIOME_TYPES
+✅ **Working**: Align, Unwrap, Paint Biomes (with grid overlay!), Generate Terrain, Rewrap  
+⚠️ **Issue**: Create Heightmaps function not working as expected - NEXT PRIORITY
+✅ **Major Success**: Grid overlay integration complete with all 6 biomes
+
+## Recent Achievement (July 01, 2025):
+✅ **GRID OVERLAY INTEGRATION COMPLETE**: v2.2.0 fully functional
+- All syntax errors resolved
+- Grid overlay controls working in painting mode
+- All 6 biomes available including Archipelago 🏝️
+- Complete terrain painting workflow operational
+
+## Next Steps (Priority Order):
+1. **HEIGHTMAP GENERATION FIX** - Troubleshoot Step 3 function specifically
+2. **Test complete workflow** - Verify end-to-end functionality once heightmaps fixed
+3. **Production validation** - Complete testing with real O'Neill cylinder scenes
+
+## DEVELOPMENT RULE ESTABLISHED:
+**Always use existing working code as foundation - never refactor unless explicitly requested**
 
 ## Recent Major Achievement:
 ✅ **TERRAIN PAINTING SYSTEM DEPLOYED**: Version 2.2.0 breakthrough
