@@ -3154,3 +3154,78 @@ DEVELOPMENT RULE ESTABLISHED:
 
 NEXT SESSION PRIORITY:
 Troubleshoot heightmap generation function - specific, targeted fix only
+
+=== VERSION 2.2.1 DEVELOPMENT SESSION - JULY 01, 2025 ===
+**Achievement**: Targeted Alignment & Unwrap Fixes Attempted
+**Status**: ⚠️ Three Critical Issues Identified
+
+## 🔧 FIXES APPLIED
+
+### **✅ Alignment Function Updated**
+- **Implemented**: Standard O'Neill dimension assignment (2.0×1.0)
+- **Goal**: Consistent cylinder metadata for unwrap calculations
+- **Method**: Replace dynamic calculation with fixed theoretical dimensions
+- **Result**: Alignment successful but dimensions may be incorrect for actual geometry
+
+### **✅ Unwrap Function Enhanced**
+- **Implemented**: Object hiding after successful unwrap (`obj.hide_viewport = True`)
+- **Goal**: Clean workspace showing only flat objects
+- **Method**: Added hiding functionality to unwrap loop
+- **Result**: Original cylinders properly hidden after unwrap
+
+### **✅ UI Improvements**
+- **Implemented**: Status indicators and helpful info text
+- **Added**: "✅ FIXED" labels and subdivision level controls
+- **Enhanced**: Step-by-step guidance with icon indicators
+- **Result**: Professional UI with clear workflow progression
+
+## ❌ CRITICAL ISSUES DISCOVERED
+
+### **Issue 1: Geometry Size Mismatch (CRITICAL)**
+**Problem**: Flat objects are 1/3 correct size
+- **Expected**: 6.0 × 18.85 (based on actual cylinder geometry)
+- **Actual**: 2.0 × 6.283 (forced theoretical dimensions)
+- **Root Cause**: Alignment function overwrites actual geometry with standard dimensions
+- **Impact**: All flat objects wrong size for 3+ weeks of development expectations
+
+### **Issue 2: Image Editor Not Loading**
+**Problem**: Heightmaps created but not displayed in paint mode
+- **Evidence**: 12 heightmaps exist (1024×1024) but Image Editor shows "None"
+- **Root Cause**: `setup_painting_layout()` image assignment failure
+- **Impact**: Cannot see heightmap during terrain painting
+
+### **Issue 3: Biome Button Labels Missing**
+**Problem**: Emoji labels not displaying on biome selection buttons
+- **Expected**: 🏝️🏔️🏜️🏞️🌵🌊 emoji text
+- **Actual**: Generic mountain/tree icons
+- **Impact**: Reduced user experience and biome identification
+
+## 📊 SESSION ANALYSIS
+
+### **Development Approach Validation**
+- ✅ **Used existing v2.2.0** as foundation (correct approach)
+- ✅ **Made targeted changes** only (alignment and unwrap functions)
+- ✅ **Preserved working features** (grid overlay, painting system, UI)
+- ✅ **Avoided artifact generation** corruption (learned from morning issues)
+
+### **Lesson Learned: Actual vs Theoretical Geometry**
+**Critical Discovery**: The cylinder objects have been at **actual scale** (6.0×3.0) for weeks, but our "fix" forced them to **theoretical scale** (2.0×1.0), making flat objects appear 3× smaller than expected.
+
+**Proper Approach**: Calculate from actual visible geometry rather than forcing standard dimensions.
+
+## 🎯 NEXT DEVELOPMENT PRIORITIES
+
+### **High Priority Fixes**
+1. **Geometry Calculation**: Use `obj.dimensions.x` and `obj.dimensions.y/2` for actual size
+2. **Image Loading**: Fix heightmap display in Image Editor during paint mode setup
+3. **UI Labels**: Ensure emoji text displays correctly on biome selection buttons
+
+### **Development Rules Reinforced**
+- ✅ **Always use actual geometry** rather than forcing theoretical dimensions
+- ✅ **Test with real user expectations** (3+ weeks of 6.0×18.85 flat objects)
+- ✅ **Make minimal targeted changes** to working systems
+- ✅ **Validate fixes against user workflow** patterns
+
+STATUS: v2.2.1 progress made but three critical issues identified requiring targeted fixes in next session.
+
+---

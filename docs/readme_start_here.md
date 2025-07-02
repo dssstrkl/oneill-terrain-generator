@@ -14,9 +14,28 @@
 5. **Use working assets** from project folder instead of creating new
 
 ## Current Workflow State:
-✅ **Working**: Align, Unwrap, Paint Biomes (with grid overlay!), Generate Terrain, Rewrap  
-⚠️ **Issue**: Create Heightmaps function not working as expected - NEXT PRIORITY
-✅ **Major Success**: Grid overlay integration complete with all 6 biomes
+⚠️ **Issues**: Alignment (wrong dimensions), Unwrap (wrong size), Painting UI (image loading)
+✅ **Working**: Heightmap creation, grid overlay system, biome selection architecture  
+🎯 **Priority**: Fix 3 critical issues - geometry size, image loading, button labels
+
+## Recent Progress (July 01, 2025):
+⚠️ **VERSION 2.2.1 PARTIAL SUCCESS**: Major systems working but 3 critical fixes needed
+- Alignment function forces wrong dimensions (2.0×1.0 vs actual 6.0×3.0)
+- Unwrap creates 33% size flat objects (2.0×6.283 vs expected 6.0×18.85)
+- Image Editor not loading heightmaps in paint mode
+- Biome buttons missing emoji labels (🏝️🏔️🏜️🏞️🌵🌊)
+
+## Next Steps (Critical Fixes):
+1. **GEOMETRY SIZE FIX** - Use actual cylinder dimensions instead of forcing theoretical
+2. **IMAGE LOADING FIX** - Ensure heightmaps display in Image Editor during paint mode
+3. **UI LABEL FIX** - Display emoji text correctly on biome selection buttons
+4. **COMPLETE TESTING** - Verify end-to-end workflow with correct geometry
+
+## DEVELOPMENT RULE REINFORCED:
+**Use actual geometry from scene, not theoretical dimensions**
+- Cylinders are actually 6.0×3.0 (length×radius) in viewport
+- Flat objects should be 6.0×18.85 (length×circumference)
+- Don't force standard dimensions on real geometry
 
 ## Recent Achievement (July 01, 2025):
 ✅ **GRID OVERLAY INTEGRATION COMPLETE**: v2.2.0 fully functional
