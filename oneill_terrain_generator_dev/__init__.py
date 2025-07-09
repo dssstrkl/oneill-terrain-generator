@@ -50,8 +50,18 @@ except ImportError:
 
 # ========================= ADDON INFORMATION =========================
 
+class ONeillAddonInfo(bpy.types.PropertyGroup):
+    """PropertyGroup for addon information"""
+    name: bpy.props.StringProperty(default="O'Neill Terrain Generator")
+    version: bpy.props.StringProperty(default="2.3.0")
+    author: bpy.props.StringProperty(default="dssstrkl")
+    description: bpy.props.StringProperty(default="Professional terrain generation")
+    realtime_monitoring: bpy.props.BoolProperty(default=False)
+    advanced_painting: bpy.props.BoolProperty(default=False)
+    biome_generation: bpy.props.BoolProperty(default=False)
+
 def get_addon_info():
-    """Get formatted addon information for UI display"""
+    """Get formatted addon information for UI display (legacy support)"""
     return {
         'name': bl_info['name'],
         'version': f"{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}",
@@ -66,10 +76,35 @@ def get_addon_info():
 
 # ========================= REGISTRATION FUNCTIONS =========================
 
+def cleanup_existing_registrations():
+    """Clean up any existing registrations to prevent conflicts"""
+    
+    # Remove scene properties first
+    if hasattr(bpy.types.Scene, 'oneill_addon_info'):
+        del bpy.types.Scene.oneill_addon_info
+    
+    # List of potentially conflicting classes
+    conflict_classes = [
+        'ONEILL_OT_StartEnhancedMonitoring',
+        'EnhancedRealtimeStatistics',
+        'ONeillAddonInfo'
+    ]
+    
+    for class_name in conflict_classes:
+        if hasattr(bpy.types, class_name):
+            try:
+                cls = getattr(bpy.types, class_name)
+                bpy.utils.unregister_class(cls)
+                print(f"🧹 Cleaned up existing class: {class_name}")
+            except Exception as e:
+                print(f"⚠️ Could not clean up {class_name}: {e}")
+
 def register():
     """Register all addon components with modular architecture"""
-    print(f"🚀 Registering {bl_info['name']} v{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}")
+    # Clean up any existing registrations first
+    cleanup_existing_registrations()
     
+    print(f"🚀 Registering {bl_info['name']} v{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}")    
     # Register main terrain system
     try:
         main_terrain_system.register()
@@ -100,10 +135,15 @@ def register():
         except Exception as e:
             print(f"⚠️ Biome generation registration failed: {e}")
     
+    # Register PropertyGroup first
+    bpy.utils.register_class(ONeillAddonInfo)
+    
     # Add global addon info to scene
-    bpy.types.Scene.oneill_addon_info = bpy.props.PointerProperty(
-        type=type('AddonInfo', (), get_addon_info())
-    )
+    bpy.types.Scene.oneill_addon_info = bpy.props.PointerProperty(type=ONeillAddonInfo)
+    
+    # Set the addon info values
+    addon_data = get_addon_info()
+    # Note: Values will be set when scene is accessed
     
     print(f"🎉 {bl_info['name']} registration complete!")
 
@@ -111,31 +151,31 @@ def unregister():
     """Unregister all addon components"""
     print(f"🔄 Unregistering {bl_info['name']}")
     
-    # Remove global addon info
+    # Remove global addon info FIRST
     if hasattr(bpy.types.Scene, 'oneill_addon_info'):
         del bpy.types.Scene.oneill_addon_info
     
-    # Unregister optional modules (reverse order)
+    # Unregister optional modules (reverse order) with better error handling
     if BIOME_GENERATION_AVAILABLE:
         try:
             biome_geometry_generator.unregister()
             print("✅ Biome generation unregistered")
-        except:
-            pass
+        except Exception as e:
+            print(f"⚠️ Biome generation unregister failed: {e}")
     
     if ADVANCED_PAINTING_AVAILABLE:
         try:
             terrain_painting.unregister()
             print("✅ Advanced painting unregistered")
-        except:
-            pass
+        except Exception as e:
+            print(f"⚠️ Advanced painting unregister failed: {e}")
     
     if REALTIME_MONITORING_AVAILABLE:
         try:
             realtime_canvas_monitor.unregister()
             print("✅ Real-time monitoring unregistered")
-        except:
-            pass
+        except Exception as e:
+            print(f"⚠️ Real-time monitoring unregister failed: {e}")
     
     # Unregister main terrain system
     try:
@@ -143,6 +183,13 @@ def unregister():
         print("✅ Main terrain system unregistered")
     except Exception as e:
         print(f"⚠️ Main system unregister warning: {e}")
+    
+    # Unregister PropertyGroup LAST
+    try:
+        bpy.utils.unregister_class(ONeillAddonInfo)
+        print("✅ Addon info PropertyGroup unregistered")
+    except Exception as e:
+        print(f"⚠️ PropertyGroup unregister failed: {e}")
     
     print(f"👋 {bl_info['name']} unregistered successfully")
 

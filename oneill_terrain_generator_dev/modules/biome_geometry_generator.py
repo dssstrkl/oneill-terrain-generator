@@ -677,3 +677,77 @@ class BiomeGeometryGenerator:
 # # Apply to specific object
 # obj = bpy.context.active_object
 # generator.apply_biome_to_object(obj, 'mountain', strength=2.0)
+
+# ========================= REGISTRATION FUNCTIONS =========================
+
+# Add these classes for UI integration
+from bpy.types import Operator, Panel
+
+class ONEILL_OT_CreateAllBiomes(Operator):
+    """Create all biome node groups"""
+    bl_idname = "oneill.create_all_biomes"
+    bl_label = "Create All Biomes"
+    bl_description = "Create geometry node groups for all biome types"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        generator = BiomeGeometryGenerator()
+        created_biomes = generator.create_all_biomes()
+        
+        self.report({'INFO'}, f"Created {len(created_biomes)} biome node groups")
+        return {'FINISHED'}
+
+class ONEILL_OT_ApplyBiomeToSelected(Operator):
+    """Apply biome to selected objects"""
+    bl_idname = "oneill.apply_biome_to_selected"
+    bl_label = "Apply Biome"
+    bl_description = "Apply selected biome to selected objects"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    biome_type: bpy.props.StringProperty()
+    strength: bpy.props.FloatProperty(default=1.0)
+    
+    def execute(self, context):
+        if not context.selected_objects:
+            self.report({'ERROR'}, "No objects selected")
+            return {'CANCELLED'}
+        
+        generator = BiomeGeometryGenerator()
+        
+        for obj in context.selected_objects:
+            if obj.type == 'MESH':
+                try:
+                    generator.apply_biome_to_object(obj, self.biome_type, self.strength)
+                except Exception as e:
+                    self.report({'WARNING'}, f"Failed to apply biome to {obj.name}: {e}")
+        
+        self.report({'INFO'}, f"Applied {self.biome_type} biome to {len(context.selected_objects)} objects")
+        return {'FINISHED'}
+
+# Registration classes list
+classes = [
+    ONEILL_OT_CreateAllBiomes,
+    ONEILL_OT_ApplyBiomeToSelected,
+]
+
+def register():
+    """Register biome geometry generator module"""
+    try:
+        for cls in classes:
+            bpy.utils.register_class(cls)
+        print("✅ Biome geometry generator registered")
+    except Exception as e:
+        print(f"❌ Biome geometry generator registration failed: {e}")
+        raise
+
+def unregister():
+    """Unregister biome geometry generator module"""
+    try:
+        for cls in reversed(classes):
+            bpy.utils.unregister_class(cls)
+        print("✅ Biome geometry generator unregistered")
+    except Exception as e:
+        print(f"⚠️ Biome geometry generator unregistration failed: {e}")
+
+if __name__ == "__main__":
+    register()

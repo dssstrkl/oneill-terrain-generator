@@ -180,6 +180,40 @@ class RealtimeBiomeApplicator:
             'created_textures': list(self.created_node_groups.keys()),
             'available_biomes': list(self.biome_colors.keys())
         }
+    
+    def apply_biome_to_flat_objects(self, biome_name, changed_regions):
+        """Apply biome geometry to flat objects based on painted regions"""
+        try:
+            # Find flat objects that correspond to the painted canvas regions
+            flat_objects = [obj for obj in bpy.data.objects if obj.get("oneill_flat")]
+            
+            if not flat_objects:
+                return False
+            
+            # Calculate which flat object corresponds to the painted region
+            # (This needs canvas-to-object mapping logic)
+            target_obj = self._map_canvas_region_to_object(changed_regions, flat_objects)
+            
+            if target_obj:
+                # Apply the biome geometry nodes
+                success = self.apply_biome_to_object(target_obj, biome_name, strength=1.0)
+                if success:
+                    print(f"✅ Applied {biome_name} biome to {target_obj.name}")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"❌ Error applying biome to 3D objects: {e}")
+            return False
+
+    def _map_canvas_region_to_object(self, changed_regions, flat_objects):
+        """Map canvas paint regions to corresponding flat objects"""
+        # This is where you'd implement the spatial mapping logic
+        # For now, return the first flat object as a placeholder
+        if flat_objects and changed_regions:
+            return flat_objects[0]
+        return None
 
 # ========================= ENHANCED PHASE2B CANVAS MONITOR =========================
 
@@ -195,7 +229,8 @@ class Phase2BCanvasMonitor:
         self.is_monitoring = False
         self.previous_canvas_data = None
         self.timer = None
-        self.update_frequency = 0.033  # 30 FPS target (enhanced from 500ms)
+        self.update_frequency = 0.1  # 10 FPS default (less intensive)
+        self.high_performance_mode = False  # Can be enabled when needed
         self.change_threshold = 0.01   # 1% change (enhanced sensitivity)
         self.applicator = RealtimeBiomeApplicator()
         self.last_update_time = 0
@@ -389,6 +424,17 @@ class Phase2BCanvasMonitor:
                 
                 # Enhanced biome detection
                 active_biome = self._detect_enhanced_biome(sampled_pixels, change_mask)
+
+                # NEW: Apply biome to 3D objects (INSERT HERE)
+                if active_biome:
+                    try:
+                        success = self.applicator.apply_biome_to_flat_objects(active_biome, self.changed_regions)
+                        if success:
+                            print(f"✅ Applied {active_biome} biome to 3D terrain")
+                        else:
+                            print(f"⚠️ Failed to apply {active_biome} biome to 3D terrain")
+                    except Exception as e:
+                        print(f"❌ 3D biome application error: {e}")
                 
                 # Enhanced tracking
                 self.paint_activity.update({
@@ -504,7 +550,17 @@ class Phase2BCanvasMonitor:
             'biome_coverage': self.biome_coverage.copy(),
             'applicator_stats': self.applicator.get_application_statistics()
         }
-
+    
+    def set_performance_mode(self, high_performance=False):
+        """Set monitoring performance mode"""
+        if high_performance:
+            self.update_frequency = 0.033  # 30 FPS
+            print("🚀 High performance monitoring enabled (30 FPS)")
+        else:
+            self.update_frequency = 0.1    # 10 FPS
+            print("⚡ Standard monitoring enabled (10 FPS)")
+        
+        self.high_performance_mode = high_performance
 # ========================= ENHANCED UI INTEGRATION =========================
 
 class EnhancedRealtimeStatistics(bpy.types.PropertyGroup):
@@ -527,27 +583,21 @@ class EnhancedRealtimeStatistics(bpy.types.PropertyGroup):
     coverage_desert: bpy.props.FloatProperty(name="Desert %", default=0.0)
     coverage_ocean: bpy.props.FloatProperty(name="Ocean %", default=0.0)
 
-class ONEILL_OT_StartEnhancedMonitoring(bpy.types.Operator):
-    """Start enhanced real-time canvas monitoring"""
-    bl_idname = "oneill.start_enhanced_monitoring"
-    bl_label = "Start Enhanced Real-Time"
-    bl_description = "Start enhanced real-time canvas monitoring with advanced analytics"
-    bl_options = {'REGISTER', 'UNDO'}
+def execute(self, context):
+    # Get or create enhanced monitor using global storage
+    import oneill_terrain_generator_dev.modules.realtime_canvas_monitor as rcm
+    if not hasattr(rcm, '_global_monitor'):
+        rcm._global_monitor = Phase2BCanvasMonitor()
     
-    def execute(self, context):
-        # Get or create enhanced monitor
-        if not hasattr(context.scene, 'oneill_enhanced_monitor'):
-            context.scene.oneill_enhanced_monitor = Phase2BCanvasMonitor()
-        
-        monitor = context.scene.oneill_enhanced_monitor
-        
-        if monitor.start_monitoring():
-            context.scene.oneill_props.realtime_mode_active = True
-            self.report({'INFO'}, "Enhanced real-time monitoring started")
-        else:
-            self.report({'ERROR'}, "Failed to start enhanced monitoring")
-        
-        return {'FINISHED'}
+    monitor = rcm._global_monitor
+    
+    if monitor.start_monitoring():
+        context.scene.oneill_props.realtime_mode_active = True
+        self.report({'INFO'}, "Enhanced real-time monitoring started")
+    else:
+        self.report({'ERROR'}, "Failed to start enhanced monitoring")
+    
+    return {'FINISHED'}
 
 class ONEILL_OT_StopEnhancedMonitoring(bpy.types.Operator):
     """Stop enhanced real-time canvas monitoring"""
@@ -557,11 +607,15 @@ class ONEILL_OT_StopEnhancedMonitoring(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
-        if hasattr(context.scene, 'oneill_enhanced_monitor'):
-            monitor = context.scene.oneill_enhanced_monitor
+        # Get the global monitor
+        import oneill_terrain_generator_dev.modules.realtime_canvas_monitor as rcm
+        if hasattr(rcm, '_global_monitor'):
+            monitor = rcm._global_monitor
             monitor.stop_monitoring()
             context.scene.oneill_props.realtime_mode_active = False
             self.report({'INFO'}, "Enhanced monitoring stopped")
+        else:
+            self.report({'WARNING'}, "No monitoring was active")
         
         return {'FINISHED'}
 

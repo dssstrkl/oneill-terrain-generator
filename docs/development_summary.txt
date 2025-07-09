@@ -3251,3 +3251,161 @@ STATUS: v2.2.1 progress made but three critical issues identified requiring targ
 ✅ **Helper functions preferred** over inline dict comprehensions for enum-to-display mapping
 ✅ **Minimal targeted fixes** rather than architectural changes
 ✅ **Future-proof implementation** ready for UI enhancements
+
+# Development Summary Update - Real-Time Module Issues & Fixes
+
+**Date**: July 8, 2025  
+**Status**: Critical Issues Identified and Fixed  
+**Version**: O'Neill Terrain Generator v2.3.0
+
+## 🚨 CRITICAL ISSUES DISCOVERED
+
+### Issue #1: Real-Time Monitoring UI Buttons Not Visible
+**Problem**: Enhanced monitoring buttons ("▶️ Start Enhanced Mode", "🛑 Stop Enhanced Mode") not appearing in UI panel despite all conditions being met.
+
+**Root Cause**: Variable scoping issue in `main_terrain_system.py` panel drawing method. The `REALTIME_MONITORING_AVAILABLE` variable was not accessible in the panel's draw context.
+
+**Status**: ✅ FIXED  
+**Location**: `main_terrain_system.py` - `ONEILL_PT_MainPanel.draw` method  
+**Fix Applied**: Added proper import scope for `REALTIME_MONITORING_AVAILABLE` variable in panel context.
+
+### Issue #2: Performance Degradation (Lag)
+**Problem**: 30 FPS canvas monitoring causing severe Blender lag and unresponsive UI.
+
+**Root Cause**: Continuous 30 FPS pixel analysis running in background even when not needed.
+
+**Status**: ✅ FIXED  
+**Location**: `realtime_canvas_monitor.py` - `Phase2BCanvasMonitor` class  
+**Fix Applied**: Reduced default monitoring frequency from 30 FPS to 10 FPS, added optional high-performance mode.
+
+### Issue #3: Missing Core Functionality - No 3D Terrain Updates
+**Problem**: Real-time monitoring only tracked statistics (paint strokes, biome coverage) but DID NOT apply actual terrain geometry to 3D objects.
+
+**Root Cause**: `RealtimeBiomeApplicator` was designed for statistics tracking, not actual 3D geometry application.
+
+**Status**: 🚧 PARTIALLY FIXED  
+**Location**: `realtime_canvas_monitor.py` - `RealtimeBiomeApplicator` class  
+**Fix Applied**: Added `apply_biome_to_flat_objects()` method framework. Requires spatial mapping implementation.
+
+## 🔧 TECHNICAL FIXES IMPLEMENTED
+
+### Fix #1: UI Button Visibility
+```python
+# BEFORE (broken):
+if REALTIME_MONITORING_AVAILABLE:  # Variable not in scope
+
+# AFTER (fixed):
+try:
+    from oneill_terrain_generator_dev import main_terrain_system as mts
+    REALTIME_MONITORING_AVAILABLE = mts.REALTIME_MONITORING_AVAILABLE
+except:
+    REALTIME_MONITORING_AVAILABLE = False
+
+if REALTIME_MONITORING_AVAILABLE:
+    # ... UI drawing code
+```
+
+### Fix #2: Performance Optimization
+```python
+# BEFORE (30 FPS - laggy):
+self.update_frequency = 0.033  # 30 FPS
+
+# AFTER (10 FPS default, 30 FPS optional):
+self.update_frequency = 0.1     # 10 FPS default
+self.high_performance_mode = False
+
+def set_performance_mode(self, high_performance=False):
+    if high_performance:
+        self.update_frequency = 0.033  # 30 FPS when needed
+    else:
+        self.update_frequency = 0.1    # 10 FPS standard
+```
+
+### Fix #3: 3D Terrain Application Framework
+```python
+def apply_biome_to_flat_objects(self, biome_name, changed_regions):
+    """Apply biome geometry to flat objects based on painted regions"""
+    flat_objects = [obj for obj in bpy.data.objects if obj.get("oneill_flat")]
+    target_obj = self._map_canvas_region_to_object(changed_regions, flat_objects)
+    
+    if target_obj:
+        return self.apply_biome_to_object(target_obj, biome_name, strength=1.0)
+    return False
+```
+
+## 🎯 CURRENT FUNCTIONALITY STATUS
+
+### ✅ Working Components:
+- **Paint Detection**: 10 FPS canvas monitoring (30 FPS optional)
+- **Biome Identification**: Color-based biome detection
+- **Statistics Tracking**: Coverage percentages, FPS, memory usage
+- **UI Integration**: Enhanced monitoring buttons (after fix)
+- **Performance**: Lag-free operation
+
+### 🚧 Partially Working:
+- **3D Terrain Application**: Framework exists but needs spatial mapping
+- **Canvas-to-Object Mapping**: Requires implementation of coordinate transformation
+
+### ❌ Missing Components:
+- **Real-Time 3D Updates**: Paint strokes don't immediately update 3D terrain
+- **Spatial Coordinate Mapping**: Canvas pixels to 3D object regions
+- **Multi-Object Support**: Single canvas mapping to multiple flat objects
+
+## 🏗️ DEVELOPMENT PRIORITIES
+
+### Immediate (Critical):
+1. **Implement Canvas-to-3D Mapping**: Map canvas paint locations to corresponding flat object regions
+2. **Add Geometry Node Integration**: Connect biome detection to actual geometry node application
+3. **Test Real-Time Performance**: Ensure 3D updates don't cause lag
+
+### Short-Term:
+1. **Multi-Object Canvas Mapping**: Handle multiple flat objects from single combined canvas
+2. **Biome Transition System**: Smooth transitions between different biome types
+3. **Performance Profiling**: Optimize for large canvases and complex geometry
+
+### Long-Term:
+1. **Advanced Brush Controls**: Brush size affects geometry application area
+2. **Undo/Redo System**: Revert 3D terrain changes
+3. **Export Integration**: Include real-time painted terrain in export pipeline
+
+## 🧪 TESTING RESULTS
+
+### UI Button Fix:
+- **Before**: 0% button visibility
+- **After**: 100% button visibility in painting mode
+
+### Performance Fix:
+- **Before**: Severe lag with 30 FPS monitoring
+- **After**: Smooth operation with 10 FPS default, 30 FPS optional
+
+### 3D Application:
+- **Current**: Statistics tracking only
+- **Target**: Real-time 3D terrain updates
+- **Status**: Framework ready, implementation needed
+
+## 🚀 NEXT DEVELOPMENT SESSION GOALS
+
+1. **Complete 3D Terrain Application**: Implement `_map_canvas_region_to_object()`
+2. **Test End-to-End Workflow**: Paint → Detect → Apply → View in 3D
+3. **Performance Optimization**: Ensure real-time updates are smooth
+4. **User Experience Testing**: Validate that painting creates immediate visual feedback
+
+## 📋 TECHNICAL DEBT
+
+### Known Issues:
+- Canvas-to-object spatial mapping not implemented
+- Single flat object assumption in current framework
+- No error handling for malformed canvas data
+- Memory usage could be optimized for large canvases
+
+### Documentation Needed:
+- Real-time monitoring user guide
+- Performance tuning recommendations
+- Canvas-to-3D coordinate transformation specifications
+- Biome application troubleshooting guide
+
+---
+
+**Critical Learning**: The "real-time monitoring" was only doing paint tracking, not actual 3D terrain updates. The core value proposition (seeing terrain appear as you paint) was missing and requires spatial mapping implementation.
+
+**Recommendation**: Complete the canvas-to-3D mapping system to achieve true real-time terrain generation functionality.

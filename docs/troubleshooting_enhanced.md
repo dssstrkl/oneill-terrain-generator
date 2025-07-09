@@ -503,3 +503,292 @@ Line 823: Statements must be separated by newlines or semicolons
 ### ✅ **Success Pattern: Biome Label Fix (July 2025)**
 
 #### **Issue**: ValueError in UI panel - biome display names failing
+
+# Real-Time Monitoring Troubleshooting Guide
+
+**Version**: O'Neill Terrain Generator v2.3.0  
+**Last Updated**: July 8, 2025
+
+## 🚨 CRITICAL ISSUES & SOLUTIONS
+
+### Issue: Enhanced Monitoring Buttons Not Visible
+
+**Symptoms**:
+- Enhanced monitoring section missing from O'Neill panel
+- No "▶️ Start Enhanced Mode" or "🛑 Stop Enhanced Mode" buttons
+- Panel ends at Grid Overlay section
+
+**Diagnosis**:
+```python
+# Run in Blender Python console to diagnose:
+import bpy
+from oneill_terrain_generator_dev import main_terrain_system
+
+props = bpy.context.scene.oneill_props
+available = main_terrain_system.REALTIME_MONITORING_AVAILABLE
+
+print(f"painting_mode: {props.painting_mode}")
+print(f"REALTIME_MONITORING_AVAILABLE: {available}")
+print(f"Should show buttons: {props.painting_mode and available}")
+```
+
+**Solutions**:
+
+1. **Apply Variable Scoping Fix**:
+   - Edit `main_terrain_system.py`
+   - Find `ONEILL_PT_MainPanel.draw` method
+   - Add proper import scope for `REALTIME_MONITORING_AVAILABLE`
+
+2. **Manual Control (Temporary)**:
+   ```python
+   # Start enhanced monitoring
+   bpy.ops.oneill.start_enhanced_monitoring()
+   
+   # Stop enhanced monitoring
+   bpy.ops.oneill.stop_enhanced_monitoring()
+   
+   # Check status
+   bpy.context.scene.oneill_props.realtime_mode_active
+   ```
+
+3. **Force UI Refresh**:
+   ```python
+   for area in bpy.context.screen.areas:
+       area.tag_redraw()
+   ```
+
+---
+
+### Issue: Severe Performance Lag
+
+**Symptoms**:
+- Blender becomes unresponsive
+- UI interactions delayed
+- High CPU usage
+- Frame rate drops
+
+**Root Cause**: 30 FPS canvas monitoring running continuously
+
+**Immediate Fix**:
+```python
+# Stop monitoring to fix lag
+import oneill_terrain_generator_dev.modules.realtime_canvas_monitor as rcm
+if hasattr(rcm, '_global_monitor'):
+    monitor = rcm._global_monitor
+    monitor.stop_monitoring()
+    print("✅ Monitoring stopped - lag should be fixed")
+```
+
+**Permanent Solution**:
+- Apply performance optimization fix in `realtime_canvas_monitor.py`
+- Reduce default monitoring frequency from 30 FPS to 10 FPS
+- Add optional high-performance mode when needed
+
+---
+
+### Issue: No 3D Terrain Updates
+
+**Symptoms**:
+- Paint strokes detected but no 3D terrain changes
+- Statistics update but geometry doesn't change
+- Flat objects remain unchanged after painting
+
+**Root Cause**: Current system only tracks paint statistics, doesn't apply geometry
+
+**Status**: Framework exists but spatial mapping not implemented
+
+**Expected Behavior**:
+1. User paints red (mountains) on canvas
+2. System detects red paint stroke
+3. **Missing**: Apply mountain geometry nodes to corresponding 3D object
+4. **Missing**: Show mountain terrain in 3D viewport immediately
+
+**Current Workaround**:
+- Use manual biome application via biome generation panel
+- Paint canvas for planning, then apply biomes manually
+
+---
+
+## 🔧 DIAGNOSTIC PROCEDURES
+
+### Check Real-Time Module Status
+```python
+import bpy
+
+# Check if module is loaded
+try:
+    import oneill_terrain_generator_dev.modules.realtime_canvas_monitor as rcm
+    print("✅ Real-time module loaded")
+    
+    # Check if monitor exists
+    if hasattr(rcm, '_global_monitor'):
+        monitor = rcm._global_monitor
+        print(f"✅ Monitor exists: {monitor.is_monitoring}")
+        print(f"Canvas: {monitor.canvas_name}")
+        print(f"FPS: {monitor.current_fps:.2f}")
+    else:
+        print("❌ No monitor instance")
+        
+except ImportError:
+    print("❌ Real-time module not loaded")
+```
+
+### Verify Enhanced Statistics Property
+```python
+# Check if enhanced stats property exists
+scene = bpy.context.scene
+if hasattr(scene, 'oneill_realtime_stats'):
+    stats = scene.oneill_realtime_stats
+    print(f"✅ Stats property exists")
+    print(f"FPS: {stats.fps}")
+    print(f"Memory: {stats.memory_usage}MB")
+    print(f"Active biome: {stats.active_biome}")
+else:
+    print("❌ Enhanced stats property missing")
+    
+    # Manual fix
+    from oneill_terrain_generator_dev.modules.realtime_canvas_monitor import EnhancedRealtimeStatistics
+    bpy.utils.register_class(EnhancedRealtimeStatistics)
+    bpy.types.Scene.oneill_realtime_stats = bpy.props.PointerProperty(type=EnhancedRealtimeStatistics)
+    print("✅ Stats property created manually")
+```
+
+### Test Canvas Detection
+```python
+# Check if canvas is properly detected
+canvas_names = [
+    "ONeill_Terrain_Canvas",
+    "TerrainPainting_Canvas"
+]
+
+for name in canvas_names:
+    if name in bpy.data.images:
+        img = bpy.data.images[name]
+        print(f"✅ Found canvas: {name} ({img.size[0]}x{img.size[1]})")
+    else:
+        print(f"❌ Canvas not found: {name}")
+```
+
+## 🎯 PERFORMANCE OPTIMIZATION
+
+### Monitoring Frequency Settings
+```python
+# Check current monitoring frequency
+import oneill_terrain_generator_dev.modules.realtime_canvas_monitor as rcm
+if hasattr(rcm, '_global_monitor'):
+    monitor = rcm._global_monitor
+    print(f"Update frequency: {monitor.update_frequency:.3f}s")
+    print(f"Equivalent FPS: {1/monitor.update_frequency:.1f}")
+    
+    # Adjust frequency if needed
+    monitor.update_frequency = 0.1  # 10 FPS (less intensive)
+    # monitor.update_frequency = 0.033  # 30 FPS (high performance)
+```
+
+### Memory Usage Monitoring
+```python
+# Check memory usage
+import oneill_terrain_generator_dev.modules.realtime_canvas_monitor as rcm
+if hasattr(rcm, '_global_monitor'):
+    monitor = rcm._global_monitor
+    stats = monitor.get_enhanced_statistics()
+    print(f"Memory usage: {stats['monitoring']['memory_mb']:.0f}MB")
+    
+    # If memory usage is high (>500MB), consider:
+    # - Reducing canvas resolution
+    # - Lowering monitoring frequency
+    # - Using sampling optimization
+```
+
+## 🚀 WORKFLOW VALIDATION
+
+### Complete Real-Time Workflow Test
+```python
+# Step 1: Ensure painting mode is active
+props = bpy.context.scene.oneill_props
+if not props.painting_mode:
+    print("❌ Not in painting mode - start terrain painting first")
+else:
+    print("✅ Painting mode active")
+
+# Step 2: Check for flat objects with heightmaps
+flat_objects = [obj for obj in bpy.data.objects if obj.get("oneill_flat")]
+heightmap_objects = [obj for obj in flat_objects if obj.get("heightmap_image")]
+print(f"✅ Found {len(heightmap_objects)} objects ready for real-time monitoring")
+
+# Step 3: Verify canvas exists
+canvas_name = "ONeill_Terrain_Canvas"
+if canvas_name in bpy.data.images:
+    canvas = bpy.data.images[canvas_name]
+    print(f"✅ Canvas ready: {canvas.size[0]}x{canvas.size[1]} pixels")
+else:
+    print("❌ Canvas not found - create combined canvas first")
+
+# Step 4: Test enhanced monitoring
+try:
+    result = bpy.ops.oneill.start_enhanced_monitoring()
+    print(f"✅ Enhanced monitoring: {result}")
+except Exception as e:
+    print(f"❌ Enhanced monitoring failed: {e}")
+```
+
+## 📋 KNOWN LIMITATIONS
+
+### Current Functionality Gaps:
+1. **Canvas-to-3D Mapping**: Paint locations don't map to 3D object regions
+2. **Multi-Object Support**: Single canvas doesn't properly map to multiple flat objects
+3. **Geometry Application**: Statistics tracking only, no actual terrain generation
+4. **Performance Scaling**: May not handle very large canvases efficiently
+
+### Workarounds:
+1. **Manual Biome Application**: Use biome generation panel for actual terrain
+2. **Canvas Planning**: Use real-time monitoring for visualization planning only
+3. **Performance Tuning**: Adjust monitoring frequency based on hardware
+
+## 🆘 EMERGENCY PROCEDURES
+
+### Stop All Real-Time Monitoring (Fix Lag)
+```python
+import bpy
+import oneill_terrain_generator_dev.modules.realtime_canvas_monitor as rcm
+
+# Stop monitoring
+if hasattr(rcm, '_global_monitor'):
+    rcm._global_monitor.stop_monitoring()
+
+# Reset scene properties
+bpy.context.scene.oneill_props.realtime_mode_active = False
+
+# Force UI refresh
+for area in bpy.context.screen.areas:
+    area.tag_redraw()
+
+print("✅ All real-time monitoring stopped")
+```
+
+### Reset Real-Time Module
+```python
+# Complete module reset
+import importlib
+import oneill_terrain_generator_dev.modules.realtime_canvas_monitor as rcm
+
+# Clear global monitor
+if hasattr(rcm, '_global_monitor'):
+    delattr(rcm, '_global_monitor')
+
+# Reload module
+importlib.reload(rcm)
+
+print("✅ Real-time module reset")
+```
+
+---
+
+## 🎯 NEXT STEPS FOR USERS
+
+1. **Apply UI fixes** to see enhanced monitoring buttons
+2. **Use performance optimizations** to prevent lag
+3. **Understand current limitations** - system tracks paint but doesn't update 3D terrain yet
+4. **Use manual biome application** for actual terrain generation until 3D mapping is implemented
+
+The real-time monitoring system is functional for paint tracking and statistics, but the core feature (immediate 3D terrain updates) requires additional development to implement canvas-to-3D spatial mapping.

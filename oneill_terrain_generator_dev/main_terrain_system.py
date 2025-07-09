@@ -908,7 +908,7 @@ class ONEILL_PT_MainPanel(Panel):
         if props.painting_mode:
             layout.label(text="🎨 PAINTING MODE ACTIVE", icon='BRUSH_DATA')
         
-# Step 1: Align Cylinders
+        # Step 1: Align Cylinders
         box = layout.box()
         box.label(text="1. Align Cylinders ✅ FIXED", icon='OBJECT_DATA')
         row = box.row()
@@ -934,7 +934,6 @@ class ONEILL_PT_MainPanel(Panel):
         box.prop(props, "heightmap_resolution")
         box.operator("oneill.create_heightmaps")
         
-        # Step 4: Terrain Painting (ENHANCED)
         # Step 4: Terrain Painting (CORRECTED VERSION)
         box = layout.box()
         box.label(text="4. Paint Terrain Biomes", icon='BRUSH_DATA')
@@ -967,6 +966,13 @@ class ONEILL_PT_MainPanel(Panel):
             grid_row.operator("oneill.configure_grid_overlay")
             
             # ENHANCED: Real-Time Monitoring Section
+            # Fix: Import the variable in the correct scope
+            try:
+                from oneill_terrain_generator_dev import main_terrain_system as mts
+                REALTIME_MONITORING_AVAILABLE = mts.REALTIME_MONITORING_AVAILABLE
+            except:
+                REALTIME_MONITORING_AVAILABLE = False
+
             if REALTIME_MONITORING_AVAILABLE:
                 monitoring_box = box.box()
                 monitoring_box.label(text="🔄 Enhanced Real-Time", icon='VISIBLE_KEYFRAME_HLT')
