@@ -43,11 +43,8 @@ class GlobalPreviewDisplacementSystem:
         }
         self._initialized = True
     
-    def enhanced_create_biome_preview(self, obj, biome_name):
-        """Enhanced create_biome_preview with canvas pattern support
-        
-        REPLACES: Original create_biome_preview method in GlobalPreviewDisplacementSystem
-        """
+    def create_biome_preview(self, obj, biome_name):
+        """Create immediate visual preview with proper subdivision"""
         if biome_name not in self.biome_preview_settings:
             biome_name = 'HILLS'
         
@@ -59,9 +56,9 @@ class GlobalPreviewDisplacementSystem:
         # ENSURE SUBDIVISION EXISTS FOR PREVIEW
         self.ensure_preview_subdivision(obj)
         
-        # Create enhanced texture WITH object and biome information for canvas pattern support
+        # Create enhanced texture
         texture_name = f"Preview_{biome_name}_{obj.name}"
-        texture = self.create_preview_texture(texture_name, settings, obj=obj, biome_name=biome_name)
+        texture = self.create_preview_texture(texture_name, settings)
         
         # Create displacement modifier with strong settings
         modifier = obj.modifiers.new(name=f"Preview_{biome_name}", type='DISPLACE')
@@ -99,7 +96,20 @@ class GlobalPreviewDisplacementSystem:
                 while obj.modifiers.find(subsurf.name) > 0:
                     bpy.ops.object.modifier_move_up(modifier=subsurf.name)
     
-    """Create displacement texture based on actual painted canvas patterns"""
+    def create_preview_texture(self, texture_name, settings):
+        """Create optimized preview texture"""
+        # Remove existing
+        if texture_name in bpy.data.textures:
+            bpy.data.textures.remove(bpy.data.textures[texture_name])
+        
+        # Create new texture
+        texture = bpy.data.textures.new(texture_name, 'CLOUDS')
+        texture.noise_scale = settings['noise_scale']
+        texture.noise_depth = settings['noise_depth']
+        texture.noise_basis = 'BLENDER_ORIGINAL'
+        
+        return texture
+    
     def remove_preview(self, obj):
         """Remove preview modifiers and clean up"""
         preview_modifiers = [mod for mod in obj.modifiers 
@@ -131,130 +141,6 @@ class GlobalPreviewDisplacementSystem:
         for obj in bpy.data.objects:
             if obj.type == 'MESH':
                 self.remove_preview(obj)
-
-    def extract_object_canvas_region(self, obj, obj_idx, canvas):
-        """Extract canvas pixels for this object's spatial region and convert to heightmap data"""
-        if not canvas:
-            return None
-            
-        canvas_width = canvas.size[0]
-        canvas_height = canvas.size[1]
-        
-        # Calculate region boundaries - horizontal division across all flat objects
-        flat_objects = [o for o in bpy.data.objects if o.get("oneill_flat")]
-        total_objects = len(flat_objects)
-        
-        if total_objects == 0:
-            return None
-            
-        region_width = canvas_width // total_objects
-        region_start_x = obj_idx * region_width
-        region_end_x = min((obj_idx + 1) * region_width, canvas_width)
-        
-        # Extract canvas pixels (RGBA format)
-        pixels = list(canvas.pixels)
-        region_pixels = []
-        
-        # Extract the region's pixels
-        for y in range(canvas_height):
-            for x in range(region_start_x, region_end_x):
-                pixel_idx = (y * canvas_width + x) * 4  # 4 channels (RGBA)
-                if pixel_idx + 3 < len(pixels):
-                    r, g, b, a = pixels[pixel_idx:pixel_idx+4]
-                    region_pixels.append((r, g, b, a))
-        
-        return region_pixels, (region_end_x - region_start_x), canvas_height
-
-    def convert_paint_to_heightmap(self, region_pixels, biome_type, region_width, region_height):
-        """Convert painted RGB values to heightmap based on biome type and paint intensity"""
-        if not region_pixels:
-            return []
-        
-        # Biome-specific height conversion parameters
-        biome_height_params = {
-            'MOUNTAINS': {'base_height': 0.5, 'intensity_multiplier': 2.0, 'invert': False},
-            'OCEAN': {'base_height': 0.5, 'intensity_multiplier': -1.0, 'invert': False},
-            'HILLS': {'base_height': 0.5, 'intensity_multiplier': 1.2, 'invert': False},
-            'DESERT': {'base_height': 0.5, 'intensity_multiplier': 0.6, 'invert': False},
-            'CANYONS': {'base_height': 0.5, 'intensity_multiplier': 1.8, 'invert': True},
-            'ARCHIPELAGO': {'base_height': 0.5, 'intensity_multiplier': 1.5, 'invert': False}
-        }
-        
-        params = biome_height_params.get(biome_type, biome_height_params['HILLS'])
-        
-        heightmap_pixels = []
-        for r, g, b, a in region_pixels:
-            # Calculate paint intensity (brightness)
-            intensity = (r + g + b) / 3.0
-            
-            # Apply biome-specific conversion
-            if params['invert']:
-                # For canyons - darker paint = deeper channels
-                height_value = params['base_height'] - (intensity * abs(params['intensity_multiplier']))
-            else:
-                # For mountains/hills/etc - brighter paint = higher elevation
-                height_value = params['base_height'] + (intensity * params['intensity_multiplier'])
-            
-            # Clamp to valid range
-            height_value = max(0.0, min(1.0, height_value))
-            
-            # Store as grayscale RGBA
-            heightmap_pixels.extend([height_value, height_value, height_value, 1.0])
-        
-        return heightmap_pixels
-
-    def create_canvas_based_texture(self, texture_name, obj, obj_idx, biome_type):
-        """Create displacement texture based on actual painted canvas patterns"""
-        
-        # Get canvas
-        canvas = bpy.data.images.get("ONeill_Terrain_Canvas")
-        if not canvas:
-            return None
-        
-        # Extract canvas region for this object
-        region_data = self.extract_object_canvas_region(obj, obj_idx, canvas)
-        if not region_data:
-            return None
-        
-        region_pixels, region_width, region_height = region_data
-        
-        # Convert to heightmap
-        heightmap_pixels = self.convert_paint_to_heightmap(region_pixels, biome_type, region_width, region_height)
-        if not heightmap_pixels:
-            return None
-        
-        # Create image texture from canvas data
-        image_name = f"CanvasPattern_{biome_type}_{obj.name}"
-        
-        # Remove existing image if present
-        if image_name in bpy.data.images:
-            bpy.data.images.remove(bpy.data.images[image_name])
-        
-        # Create new image with canvas-derived heightmap
-        image = bpy.data.images.new(
-            image_name,
-            width=region_width,
-            height=region_height,
-            alpha=True,
-            float_buffer=True
-        )
-        
-        # Set pixels to our heightmap data
-        image.pixels = heightmap_pixels
-        image.update()
-        
-        # Create IMAGE texture (not CLOUDS)
-        if texture_name in bpy.data.textures:
-            bpy.data.textures.remove(bpy.data.textures[texture_name])
-        
-        texture = bpy.data.textures.new(texture_name, 'IMAGE')
-        texture.image = image
-        
-        # Configure texture settings for displacement
-        texture.extension = 'REPEAT'
-        texture.use_interpolation = True
-        
-        return texture
 
 # ========================= ENHANCED TERRAIN APPLICATOR =========================
 

@@ -792,3 +792,226 @@ print("✅ Real-time module reset")
 4. **Use manual biome application** for actual terrain generation until 3D mapping is implemented
 
 The real-time monitoring system is functional for paint tracking and statistics, but the core feature (immediate 3D terrain updates) requires additional development to implement canvas-to-3D spatial mapping.
+
+# O'Neill Terrain Generator - Troubleshooting Guide (Updated)
+
+**Last Updated**: July 11, 2025  
+**Major Update**: UI Consolidation & Enhanced Displacement Fixes
+
+---
+
+## 🎯 **RECENTLY RESOLVED ISSUES**
+
+### ✅ **Issue: Dual Terrain Painting Interfaces**
+**Status**: **RESOLVED** ✅
+- **Problem**: Confusing separate "Two-Stage Terrain Painting" panel
+- **Solution**: Consolidated all painting controls into main workflow Step 4
+- **Result**: Single, intuitive terrain painting interface
+
+### ✅ **Issue: Missing Terrain After Lock-In**
+**Status**: **RESOLVED** ✅  
+- **Problem**: Displacement modifiers created but terrain not visible
+- **Root Cause**: Weak displacement strength values (0.5-1.0 units)
+- **Solution**: Enhanced strength values (0.8-2.5 units) for clear visibility
+- **Result**: Strong, immediately visible terrain displacement
+
+### ✅ **Issue: Context Error on Paint Mode Re-entry**
+**Status**: **RESOLVED** ✅
+- **Problem**: `RuntimeError: Operator bpy.ops.object.select_all.poll() failed`
+- **Root Cause**: Object selection called from wrong Blender context
+- **Solution**: `safe_object_selection()` function with context override
+- **Result**: Reliable operation across all Blender workspaces
+
+---
+
+## 🔧 **CURRENT WORKFLOW TROUBLESHOOTING**
+
+### **Step 4: Paint Terrain Biomes**
+
+#### **Issue: Canvas Status Shows "Needs Recreation"**
+**Symptoms:** Warning triangle with "Canvas needs recreation"
+**Cause:** Canvas aspect ratio is incorrect (>10:1 or <1:10)
+**Solution:**
+1. Click "🔧 Fix Canvas & Start Painting" button
+2. Canvas will be recreated with proper dimensions
+3. Should show "✅ Canvas: [width]x[height]" when fixed
+
+#### **Issue: Preview Buttons Don't Create Visible Terrain**
+**Symptoms:** Biome preview buttons execute but no terrain visible
+**Diagnostic Steps:**
+1. Check viewport shading mode (use Material Preview or Rendered)
+2. Verify object has modifiers: Select flat object → Properties → Modifiers
+3. Expected: Should see "Preview_[BiomeName]" displacement modifier
+
+**Debug Command:**
+```python
+# Run in Blender console
+obj = bpy.context.active_object
+print(f"Modifiers: {[mod.name for mod in obj.modifiers]}")
+for mod in obj.modifiers:
+    if mod.type == 'DISPLACE':
+        print(f"Displacement: {mod.strength}")
+```
+
+#### **Issue: Lock-In Creates Weak Final Terrain**
+**Symptoms:** Final terrain barely visible after lock-in conversion
+**Check:** Verify enhanced strength values are being used
+**Expected Values:**
+- Mountains: 2.5 strength
+- Hills: 1.5 strength  
+- Desert: 0.8 strength
+
+**Debug Command:**
+```python
+# Check final terrain strength
+flat_objects = [obj for obj in bpy.data.objects if obj.get("oneill_flat")]
+for obj in flat_objects:
+    terrain_mods = [mod for mod in obj.modifiers if mod.name.startswith("Terrain_")]
+    for mod in terrain_mods:
+        print(f"{obj.name}: {mod.name} strength = {mod.strength}")
+```
+
+---
+
+## 🚨 **CRITICAL ERROR PATTERNS**
+
+### **Pattern 1: "No flat objects found"**
+**Full Error:** `No flat objects found. Run "Unwrap to Flat" first.`
+**Cause:** Step 2 not completed or flat objects deleted
+**Solution:**
+1. Verify cylinder objects exist and are selected
+2. Run Step 2: "Unwrap to Flat" 
+3. Check for objects with names ending in "_flat"
+
+### **Pattern 2: "Object selection fallback"**
+**Full Error:** Console shows "Object selection fallback: [error]"
+**Cause:** Context override failed, using emergency fallback
+**Impact:** Usually harmless, operation continues with alternative method
+**Action:** No user action needed, system handles automatically
+
+### **Pattern 3: "Failed to apply terrain"**
+**Full Error:** Console shows "Error applying terrain to [object]: [error]"
+**Cause:** Texture creation or modifier application failed
+**Solution:**
+1. Check Blender memory usage
+2. Restart Blender if memory is high
+3. Re-run lock-in conversion
+
+---
+
+## 🔍 **DIAGNOSTIC TOOLS**
+
+### **Quick Status Check**
+```python
+# Run in Blender console for complete status
+def quick_status():
+    print("=== O'NEILL TERRAIN STATUS ===")
+    
+    # Check flat objects
+    flat_objects = [obj for obj in bpy.data.objects if obj.get("oneill_flat")]
+    print(f"Flat objects: {len(flat_objects)}")
+    
+    # Check canvas
+    canvas = bpy.data.images.get("ONeill_Terrain_Canvas")
+    if canvas:
+        print(f"Canvas: {canvas.size[0]}x{canvas.size[1]}")
+    else:
+        print("Canvas: Not found")
+    
+    # Check painting mode
+    props = bpy.context.scene.oneill_props
+    print(f"Painting mode: {props.painting_mode}")
+    
+    # Check modifiers
+    total_previews = 0
+    total_terrain = 0
+    for obj in flat_objects:
+        total_previews += len([m for m in obj.modifiers if m.name.startswith("Preview_")])
+        total_terrain += len([m for m in obj.modifiers if m.name.startswith("Terrain_")])
+    
+    print(f"Preview modifiers: {total_previews}")
+    print(f"Terrain modifiers: {total_terrain}")
+
+quick_status()
+```
+
+### **Viewport Visibility Check**
+```python
+# Ensure terrain is visible in viewport
+def fix_viewport_visibility():
+    flat_objects = [obj for obj in bpy.data.objects if obj.get("oneill_flat")]
+    for obj in flat_objects:
+        obj.display_type = 'TEXTURED'
+    bpy.context.view_layer.update()
+    print(f"Updated {len(flat_objects)} objects for terrain visibility")
+
+fix_viewport_visibility()
+```
+
+---
+
+## 🎯 **PERFORMANCE OPTIMIZATION**
+
+### **For Large Cylinder Segments:**
+- Use subdivision level 3-4 instead of 5+ for initial testing
+- Monitor memory usage during preview operations
+- Consider breaking very long cylinders (>10 units) into smaller segments
+
+### **Memory Management:**
+- Lock-in process removes all preview modifiers and textures
+- Canvas recreation cleans up old image data
+- Restart Blender if experiencing slow performance after multiple painting sessions
+
+---
+
+## ✅ **VERIFICATION CHECKLIST**
+
+After any troubleshooting:
+- [ ] Step 4 shows unified painting interface (no separate panels)
+- [ ] Canvas status displays correctly
+- [ ] Preview buttons create visible displacement immediately
+- [ ] Lock-in conversion produces strong final terrain
+- [ ] All modifiers have appropriate strength values (0.8-2.5 range)
+- [ ] No context errors in Blender console
+- [ ] Terrain visible in Material Preview/Rendered viewport modes
+
+---
+
+## 🆘 **EMERGENCY RESET**
+
+If the system becomes unstable:
+
+```python
+# Complete system reset
+def emergency_reset():
+    props = bpy.context.scene.oneill_props
+    props.painting_mode = False
+    props.realtime_mode_active = False
+    props.show_grid_overlay = False
+    
+    # Remove all terrain-related modifiers and textures
+    for obj in bpy.data.objects:
+        mods_to_remove = [mod for mod in obj.modifiers 
+                         if any(name in mod.name for name in ["Preview_", "Terrain_", "Subdivision_For_"])]
+        for mod in mods_to_remove:
+            obj.modifiers.remove(mod)
+    
+    # Clean up textures
+    textures_to_remove = [tex for tex in bpy.data.textures 
+                         if any(name in tex.name for name in ["Preview_", "Terrain_"])]
+    for tex in textures_to_remove:
+        bpy.data.textures.remove(tex)
+    
+    # Remove canvas
+    canvas = bpy.data.images.get("ONeill_Terrain_Canvas")
+    if canvas:
+        bpy.data.images.remove(canvas)
+    
+    print("✅ Emergency reset complete")
+
+emergency_reset()
+```
+
+---
+
+**Status**: Enhanced troubleshooting for consolidated UI and improved displacement system. All major blocking issues resolved.
