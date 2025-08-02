@@ -148,9 +148,29 @@ class PerformanceOptimizedBiomeApplicator:
 
     def apply_biome_to_flat_objects_optimized(self, biome_name, changed_regions):
         """
-        PERFORMANCE FIX 5: Lightweight biome application with multiple performance modes
+        ENHANCED VERSION: Lightweight biome application with spatial mapping
         """
         try:
+            # Try to use enhanced spatial mapping
+            try:
+                from ..enhanced_spatial_mapping import EnhancedSpatialMapping
+                
+                # Apply enhanced spatial mapping instead of old logic
+                enhanced_mapper = EnhancedSpatialMapping()
+                success = enhanced_mapper.apply_enhanced_spatial_mapping(enable_persistence=False)
+                
+                if success:
+                    print(f"✅ Enhanced spatial mapping applied successfully")
+                    return True
+                else:
+                    print(f"⚠️ Enhanced spatial mapping failed, falling back to existing logic")
+                    
+            except ImportError:
+                print(f"⚠️ Enhanced spatial mapping module not available, using existing logic")
+            except Exception as e:
+                print(f"⚠️ Enhanced spatial mapping error: {e}, falling back to existing logic")
+            
+            # FALLBACK: Use existing logic if enhanced mapping fails
             flat_objects = [obj for obj in bpy.data.objects if obj.get("oneill_flat")]
             if not flat_objects:
                 return False
@@ -161,14 +181,14 @@ class PerformanceOptimizedBiomeApplicator:
             
             target_obj = mapping_result['object']
             
-            # PERFORMANCE MODE SELECTION
+            # PERFORMANCE MODE SELECTION (existing logic preserved)
             if self.performance_mode == 'LIGHTWEIGHT':
                 return self._apply_lightweight_displacement(target_obj, biome_name)
             elif self.performance_mode == 'STANDARD':
                 return self._apply_standard_displacement(target_obj, biome_name)
             else:  # HEAVY mode
                 return self._apply_heavy_geometry_nodes(target_obj, biome_name)
-                
+                    
         except Exception as e:
             print(f"❌ Optimized biome application error: {e}")
             return False
