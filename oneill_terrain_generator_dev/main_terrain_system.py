@@ -1,8 +1,8 @@
 """
-O'Neill Terrain Generator - SESSION 10 INTEGRATED VERSION
-FIXED: Alignment bug - cylinders now perfectly contiguous
-INTEGRATED: Session 10 biome geometry nodes with fallback architecture
-Applied true 1:1 spatial canvas-to-object mapping with multi-biome support
+O'Neill Terrain Generator - SESSION 23 MINIMAL BLACK CANVAS FIX
+FIXED: Canvas now defaults to BLACK (not gray mountain biome color)
+BASE: Session 10 integrated version with alignment and biome systems
+Applied minimal functional changes for canvas color issue
 """
 
 import bpy
@@ -751,6 +751,36 @@ class CanvasManager:
         
         return canvas_width, canvas_height
 
+class ONEILL_OT_FixCanvasBlack(Operator):
+    """Fix existing canvas to use black default instead of gray"""
+    bl_idname = "oneill.fix_canvas_black"
+    bl_label = "🔧 Fix Canvas to Black"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        canvas_name = "oneill_terrain_canvas"
+        
+        if canvas_name not in bpy.data.images:
+            self.report({'ERROR'}, f"Canvas '{canvas_name}' not found")
+            return {'CANCELLED'}
+        
+        canvas = bpy.data.images[canvas_name]
+        width, height = canvas.size
+        total_pixels = width * height
+        
+        # Set all pixels to black
+        black_pixels = [0.0, 0.0, 0.0, 1.0] * total_pixels
+        canvas.pixels = black_pixels
+        canvas.update()
+        
+        # Force refresh in Image Editor
+        for area in bpy.context.screen.areas:
+            if area.type == 'IMAGE_EDITOR':
+                area.tag_redraw()
+        
+        self.report({'INFO'}, f"Canvas set to BLACK ({width}x{height} pixels)")
+        return {'FINISHED'}
+
 class ONEILL_OT_LoadCanvasManually(Operator):
     """Manually load canvas for painting"""
     bl_idname = "oneill.load_canvas_manually"
@@ -780,6 +810,10 @@ class ONEILL_OT_LoadCanvasManually(Operator):
                 height=canvas_height,
                 alpha=False
             )
+            # Initialize with BLACK color (not gray mountain biome color)
+            pixels = [0.0, 0.0, 0.0, 1.0] * (canvas_width * canvas_height)
+            canvas.pixels = pixels
+            canvas.update()
             
         # Set up split workspace
         if canvas_manager.setup_split_workspace_for_painting(context, canvas):
@@ -827,8 +861,8 @@ class ONEILL_OT_StartTerrainPainting(Operator):
             alpha=False
         )
         
-        # Initialize canvas with neutral color
-        pixels = [0.5, 0.5, 0.5, 1.0] * (canvas_width * canvas_height)
+        # Initialize canvas with BLACK color (not gray mountain biome color)
+        pixels = [0.0, 0.0, 0.0, 1.0] * (canvas_width * canvas_height)
         canvas.pixels = pixels
         canvas.update()
         
@@ -1070,6 +1104,11 @@ class ONEILL_PT_MainPanel(Panel):
                 paint_box.operator("oneill.load_canvas_manually", 
                                  text="📂 Load Canvas Manually", 
                                  icon='FILE_IMAGE')
+                
+                # Fix canvas color
+                paint_box.operator("oneill.fix_canvas_black",
+                                 text="🔧 Fix Canvas to Black",
+                                 icon='BRUSH_DATA')
             else:
                 # Painting mode active - show biome controls
                 paint_box.label(text="🎨 Painting Mode Active", icon='CHECKMARK')
@@ -1176,6 +1215,7 @@ classes = [
     ONEILL_OT_DetectPaintApplyPreviews,
     ONEILL_OT_RecoverSession10Biomes,
     ONEILL_OT_TestSession10Integration,
+    ONEILL_OT_FixCanvasBlack,
     ONEILL_OT_LoadCanvasManually,
     ONEILL_OT_StartTerrainPainting,
     ONEILL_OT_ValidateTerrainLayout,
