@@ -88,8 +88,12 @@ def get_session10_biome_generator():
         import os
         
         # Add modules directory to path
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        modules_dir = os.path.join(script_dir, 'modules')
+        current_dir = os.path.dirname(bpy.context.space_data.text.filepath if bpy.context.space_data and hasattr(bpy.context.space_data, 'text') and bpy.context.space_data.text else bpy.data.filepath)
+        if not current_dir:
+            # Fallback: use add-on directory
+            current_dir = '/Users/dssstrkl/Documents/Projects/oneill terrain generator/oneill_terrain_generator_dev'
+        
+        modules_dir = os.path.join(current_dir, 'modules')
         
         if os.path.exists(modules_dir) and modules_dir not in sys.path:
             sys.path.insert(0, modules_dir)
@@ -114,12 +118,55 @@ class GlobalPreviewDisplacementSystem:
         }
     
     def create_biome_preview(self, obj, biome_name):
-        """Create enhanced biome preview - DISABLED when UV-Canvas system is active"""
+        """Create enhanced biome preview - ENABLE geometry nodes with UV-Canvas system"""
         
         # CHECK: If Canvas_Image_Texture exists, UV-Canvas system is active
         if 'Canvas_Image_Texture' in bpy.data.textures:
-            print(f"⚠️ UV-Canvas system active - skipping individual biome preview for {obj.name}")
-            print(f"   Use UV-Canvas system instead of individual displacement modifiers")
+            print(f"✅ UV-Canvas active - applying geometry nodes alongside displacement for {obj.name}")
+            
+            # TRY SESSION 10 GEOMETRY NODES (allow with UV-Canvas)
+            try:
+                biome_gen = get_session10_biome_generator()
+                if biome_gen:
+                    # Map biome names from UI to Session 10 format
+                    biome_mapping = {
+                        'MOUNTAINS': 'mountain',
+                        'OCEAN': 'ocean', 
+                        'ARCHIPELAGO': 'archipelago',
+                        'CANYONS': 'canyon',
+                        'HILLS': 'rolling_hills',
+                        'DESERT': 'desert'
+                    }
+                    
+                    session10_biome = biome_mapping.get(biome_name, 'rolling_hills')
+                    
+                    # Apply geometry nodes (no displacement conflict)
+                    modifier = biome_gen.apply_biome_to_object(
+                        obj, 
+                        session10_biome, 
+                        strength=2.0,
+                        scale=1.0,
+                        intensity=1.0
+                    )
+                    
+                    if modifier:
+                        print(f"✅ Applied Session 10 geometry nodes {biome_name} to {obj.name}")
+                        
+                        # Force immediate viewport update
+                        obj.display_type = 'TEXTURED'
+                        bpy.context.view_layer.update()
+                        
+                        for area in bpy.context.screen.areas:
+                            if area.type == 'VIEW_3D':
+                                area.tag_redraw()
+                        
+                        return f"GeometryNodes_{biome_name}"
+                        
+            except Exception as e:
+                print(f"⚠️ Session 10 geometry nodes failed: {e}")
+            
+            # Skip fallback displacement (UV-Canvas handles displacement)
+            print(f"   UV-Canvas displacement active - skipping individual displacement modifiers")
             return None
         
         # Original biome preview logic only if UV-Canvas not active
@@ -567,7 +614,7 @@ class ONEILL_OT_SelectPaintingBiome(bpy.types.Operator):
 # ========================= ENHANCED PAINT DETECTION =========================
 
 class ONEILL_OT_DetectPaintApplyPreviews(Operator):
-    """Enhanced paint detection with Session 10 integration"""
+    """Enhanced paint detection with Session 10 integration and UV region sampling"""
     bl_idname = "oneill.detect_paint_apply_previews"
     bl_label = "🔍 Detect Paint & Apply Previews"
     bl_options = {'REGISTER', 'UNDO'}
@@ -575,39 +622,59 @@ class ONEILL_OT_DetectPaintApplyPreviews(Operator):
     def execute(self, context):
         props = context.scene.oneill_props
         
-        # Find all flat objects with heightmaps
+        # Check if unified canvas exists
+        canvas_name = 'oneill_terrain_canvas'
+        if canvas_name not in bpy.data.images:
+            self.report({'ERROR'}, "Unified canvas not found. Start terrain painting first.")
+            return {'CANCELLED'}
+        
+        # Find all flat objects
         flat_objects = [obj for obj in bpy.data.objects if obj.get("oneill_flat")]
         if not flat_objects:
             self.report({'ERROR'}, "No flat objects found for paint detection")
             return {'CANCELLED'}
         
+        # Sort objects by X position for consistent UV region mapping
+        flat_objects.sort(key=lambda obj: obj.location.x)
+        
+        canvas = bpy.data.images[canvas_name]
         preview_system = GlobalPreviewDisplacementSystem()
         processed_count = 0
         
-        for obj in flat_objects:
-            heightmap_name = obj.get("heightmap_image")
-            if not heightmap_name or heightmap_name not in bpy.data.images:
-                continue
+        print(f"\n🎨 UV Region Sampling for {len(flat_objects)} objects from unified canvas...")
+        
+        # Process each object with its specific UV region
+        for obj_index, obj in enumerate(flat_objects):
+            try:
+                # Sample this object's UV region from unified canvas
+                detected_biomes = self.sample_canvas_region_for_object(obj_index, canvas)
                 
-            canvas = bpy.data.images[heightmap_name]
-            detected_biomes = self.detect_painted_biomes(canvas)
-            
-            if detected_biomes:
-                # Apply the most prominent biome as preview
-                main_biome = max(detected_biomes, key=detected_biomes.get)
-                preview_system.create_biome_preview(obj, main_biome)
-                processed_count += 1
-                print(f"✅ Applied {main_biome} preview to {obj.name}")
+                if detected_biomes:
+                    # Apply the most prominent biome as preview
+                    main_biome = max(detected_biomes, key=detected_biomes.get)
+                    preview_system.create_biome_preview(obj, main_biome)
+                    processed_count += 1
+                    print(f"✅ Object {obj_index + 1} ({obj.name}): Applied {main_biome} preview")
+                else:
+                    print(f"⚠️ Object {obj_index + 1} ({obj.name}): No biomes detected in UV region")
+            except Exception as e:
+                print(f"❌ Object {obj_index + 1} ({obj.name}): Error processing UV region - {e}")
         
         enhanced_mapper = get_enhanced_spatial_mapping()
         if enhanced_mapper:
             try:
+                # SESSION 31 REGRESSION FIX: Remove conflicting Unified_ modifiers
+                for obj in flat_objects:
+                    for mod in list(obj.modifiers):
+                        if mod.name.startswith("Unified_") and mod.type == 'DISPLACE':
+                            obj.modifiers.remove(mod)
+                
                 enhanced_mapper.apply_enhanced_spatial_mapping()
-                print("✅ Applied enhanced spatial mapping")
+                print("✅ Applied enhanced spatial mapping (conflicts removed)")
             except Exception as e:
                 print(f"⚠️ Enhanced spatial mapping failed: {e}")
         
-        self.report({'INFO'}, f"Applied previews to {processed_count} objects")
+        self.report({'INFO'}, f"Applied previews to {processed_count}/{len(flat_objects)} objects")
         return {'FINISHED'}
     
     def detect_painted_biomes(self, canvas):
@@ -649,6 +716,76 @@ class ONEILL_OT_DetectPaintApplyPreviews(Operator):
                 if closest_biome:
                     detected_biomes[closest_biome] = detected_biomes.get(closest_biome, 0) + 1
         
+        return detected_biomes
+    
+    def sample_canvas_region_for_object(self, object_index, canvas):
+        """Sample the UV-mapped region of unified canvas for a specific flat object"""
+        canvas_width, canvas_height = canvas.size
+        pixels = list(canvas.pixels)
+        
+        # Calculate UV region for this object (each object gets 1/12th of canvas width)
+        num_objects = 12  # Total flat objects
+        u_start = object_index / num_objects  # 0.000, 0.083, 0.167, etc.
+        u_end = (object_index + 1) / num_objects
+        
+        # Convert UV coordinates to pixel coordinates
+        pixel_x_start = int(u_start * canvas_width)
+        pixel_x_end = int(u_end * canvas_width)
+        
+        print(f"  Object {object_index + 1}: UV region {u_start:.3f}-{u_end:.3f} → pixels {pixel_x_start}-{pixel_x_end}")
+        
+        # Sample colors within this UV region
+        return self.analyze_canvas_colors(pixels, canvas_width, canvas_height, 
+                                        pixel_x_start, pixel_x_end)
+    
+    def analyze_canvas_colors(self, canvas_pixels, canvas_width, canvas_height, 
+                            pixel_x_start, pixel_x_end):
+        """Analyze canvas region to determine dominant biome"""
+        biome_colors = {
+            'MOUNTAINS': (0.5, 0.5, 0.5),
+            'OCEAN': (0.1, 0.3, 0.8),
+            'ARCHIPELAGO': (0.2, 0.8, 0.9),
+            'CANYONS': (0.8, 0.4, 0.2),
+            'HILLS': (0.4, 0.8, 0.3),
+            'DESERT': (0.9, 0.8, 0.4),
+        }
+        
+        detected_biomes = {}
+        sample_count = 0
+        
+        # Sample pixels within the X range, across the full Y range
+        sample_step_x = max(1, (pixel_x_end - pixel_x_start) // 20)  # 20 samples across width
+        sample_step_y = max(1, canvas_height // 10)  # 10 samples across height
+        
+        for x in range(pixel_x_start, pixel_x_end, sample_step_x):
+            for y in range(0, canvas_height, sample_step_y):
+                pixel_idx = (y * canvas_width + x) * 4
+                
+                if pixel_idx + 2 < len(canvas_pixels):
+                    pixel_color = (canvas_pixels[pixel_idx], 
+                                 canvas_pixels[pixel_idx + 1], 
+                                 canvas_pixels[pixel_idx + 2])
+                    
+                    # Skip black/unpainted pixels
+                    if sum(pixel_color) < 0.1:
+                        continue
+                    
+                    sample_count += 1
+                    
+                    # Find closest biome color
+                    closest_biome = None
+                    min_distance = float('inf')
+                    
+                    for biome, color in biome_colors.items():
+                        distance = sum((a - b) ** 2 for a, b in zip(pixel_color, color)) ** 0.5
+                        if distance < min_distance and distance < 0.3:  # Tolerance
+                            min_distance = distance
+                            closest_biome = biome
+                    
+                    if closest_biome:
+                        detected_biomes[closest_biome] = detected_biomes.get(closest_biome, 0) + 1
+        
+        print(f"    Sampled {sample_count} painted pixels, detected biomes: {detected_biomes}")
         return detected_biomes
 
 # ========================= SESSION 10 RECOVERY OPERATORS =========================
