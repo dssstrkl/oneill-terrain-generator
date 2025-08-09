@@ -114,15 +114,7 @@ class GlobalPreviewDisplacementSystem:
         }
     
     def create_biome_preview(self, obj, biome_name):
-        """Create enhanced biome preview - DISABLED when UV-Canvas system is active"""
-        
-        # CHECK: If Canvas_Image_Texture exists, UV-Canvas system is active
-        if 'Canvas_Image_Texture' in bpy.data.textures:
-            print(f"⚠️ UV-Canvas system active - skipping individual biome preview for {obj.name}")
-            print(f"   Use UV-Canvas system instead of individual displacement modifiers")
-            return None
-        
-        # Original biome preview logic only if UV-Canvas not active
+        """Create enhanced biome preview with Session 10 geometry nodes integration"""
         if biome_name not in self.biome_preview_settings:
             print(f"⚠️ Unknown biome {biome_name}, using HILLS")
             biome_name = 'HILLS'
@@ -738,37 +730,25 @@ class UVCanvasIntegrationSystem:
         if self.canvas_name in bpy.data.images:
             canvas = bpy.data.images[self.canvas_name]
             texture.image = canvas
-            texture.extension = 'EXTEND'  # SESSION 27 WORKING SETTING
             print(f"  Linked to canvas: {canvas.name} ({canvas.size[0]}x{canvas.size[1]})")
         else:
-            # Create a default black canvas if none exists
-            print(f"  Creating default canvas: {self.canvas_name}")
-            canvas = bpy.data.images.new(self.canvas_name, width=self.canvas_width, height=self.canvas_height, alpha=False)
-            pixels = [0.0, 0.0, 0.0, 1.0] * (self.canvas_width * self.canvas_height)
-            canvas.pixels = pixels
-            canvas.update()
-            texture.image = canvas
-            texture.extension = 'EXTEND'
-            print(f"  Created default black canvas: {canvas.name} ({canvas.size[0]}x{canvas.size[1]})")
+            print("  ❌ Canvas image not found")
+            return None
             
         return texture
     
     def setup_sequential_uv_mapping(self, flat_objects):
-        """Set up global coordinate UV mapping - SESSION 27 WORKING IMPLEMENTATION"""
-        print("Setting up global coordinate UV mapping...")
+        """Set up sequential UV mapping for each flat object - CORRECTED TO MATCH SESSION 21/25"""
+        print("Setting up sequential UV mapping...")
         
         num_objects = len(flat_objects)
         if num_objects == 0:
             print("❌ No flat objects found")
             return False
-        
-        # Calculate global surface bounds - SESSION 27 WORKING FORMULA
-        flat_objects.sort(key=lambda obj: obj.location.x)
-        min_x = min(obj.location.x - 1.0 for obj in flat_objects)
-        max_x = max(obj.location.x + 1.0 for obj in flat_objects)
-        total_width = max_x - min_x
-        
-        print(f"Global bounds: X={min_x:.3f} to {max_x:.3f} (width: {total_width:.3f})")
+            
+        # Calculate UV step for sequential mapping  
+        uv_step = 1.0 / num_objects  # 0.0833 for 12 objects
+        print(f"UV step per object: {uv_step:.4f}")
         
         # Store original active object
         original_active = bpy.context.view_layer.objects.active
@@ -778,9 +758,14 @@ class UVCanvasIntegrationSystem:
         if bpy.context.mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
         
-        # Process each object with global coordinate mapping
+        # Process each object
         for i, obj in enumerate(flat_objects):
             print(f"Object {i+1}: {obj.name}")
+            
+            # Calculate this object's UV range (horizontal strip)
+            u_min = i * uv_step
+            u_max = (i + 1) * uv_step
+            print(f"  UV range: {u_min:.4f} - {u_max:.4f}")
             
             # Set as active object
             bpy.context.view_layer.objects.active = obj
@@ -798,20 +783,28 @@ class UVCanvasIntegrationSystem:
                 bm.loops.layers.uv.new()
             uv_layer = bm.loops.layers.uv.active
             
-            # Apply SESSION 27 WORKING FORMULA for each vertex
+            # Set UV coordinates for each face loop
             for face in bm.faces:
                 for loop in face.loops:
                     vert = loop.vert
                     
-                    # Get world coordinates - CRITICAL: Use matrix_world
-                    world_coords = obj.matrix_world @ vert.co
+                    # Get vertex position in object space
+                    x, y, z = vert.co
                     
-                    # SESSION 27 WORKING FORMULA - Global coordinate mapping
-                    u_coord = (world_coords.x - min_x) / total_width        # Global X → Canvas U
-                    v_coord = (world_coords.y + 3.14) / 6.28               # Cylinder Y → Canvas V
+                    # Map X to 0-1 within this object (assuming object spans -1 to +1)
+                    local_u = (x + 1.0) / 2.0
+                    local_u = max(0.0, min(1.0, local_u))
+                    
+                    # Map Y to 0-1 (assuming object spans roughly -π to +π)
+                    local_v = (y + 3.14159) / (2 * 3.14159)
+                    local_v = max(0.0, min(1.0, local_v))
+                    
+                    # Map to this object's horizontal strip of the canvas
+                    global_u = u_min + (local_u * (u_max - u_min))
+                    global_v = local_v
                     
                     # Set the UV coordinate
-                    loop[uv_layer].uv = (u_coord, v_coord)
+                    loop[uv_layer].uv = (global_u, global_v)
             
             # Update the mesh
             bmesh.update_edit_mesh(obj.data)
@@ -819,60 +812,48 @@ class UVCanvasIntegrationSystem:
             # Return to object mode
             bpy.ops.object.mode_set(mode='OBJECT')
             
-            print(f"  ✅ Global coordinate UV mapping applied")
+            print(f"  ✅ UV mapping applied to strip {u_min:.3f}-{u_max:.3f}")
         
         # Restore original active object and mode
         if original_active:
             bpy.context.view_layer.objects.active = original_active
         
-        print(f"✅ Global coordinate UV mapping complete for all {num_objects} objects")
+        print(f"✅ Sequential UV mapping complete for all {num_objects} objects")
         return True
     
-    def add_unified_canvas_displacement_modifiers(self):
-        """Add unified canvas displacement modifiers - SESSION 27 CORRECT IMPLEMENTATION"""
-        print("🚀 Adding unified canvas displacement modifiers...")
+    def add_unified_displacement_modifiers(self, flat_objects, canvas_texture):
+        """Add UNIFIED Canvas_Displacement modifiers - all objects use SAME texture via UV"""
+        print("Adding UNIFIED Canvas_Displacement modifiers...")
+        print("ARCHITECTURE: All objects share the same canvas texture through UV mapping")
         
-        # Get flat objects
-        flat_objects = self.get_flat_objects()
-        if not flat_objects:
-            print("❌ No flat objects found")
-            return False
-        
-        # Create Canvas_Image_Texture
-        canvas_texture = self.create_canvas_image_texture()
-        if not canvas_texture:
-            print("❌ Failed to create canvas texture")
-            return False
-        
-        # CRITICAL: Remove ALL existing displacement modifiers first (clean slate)
-        print("Removing all existing displacement modifiers...")
-        for obj in flat_objects:
-            modifiers_to_remove = []
-            for mod in obj.modifiers:
-                if mod.type == 'DISPLACE':
-                    modifiers_to_remove.append(mod)
-            
-            for mod in modifiers_to_remove:
-                print(f"  Removing {mod.name} from {obj.name}")
-                obj.modifiers.remove(mod)
-        
-        # Add UNIFIED Canvas_Displacement modifiers to all objects
-        print("Adding unified Canvas_Displacement modifiers...")
         for i, obj in enumerate(flat_objects, 1):
             print(f"  Object {i}: {obj.name}")
             
-            # Add Canvas_Displacement modifier - SESSION 27 UNIFIED APPROACH
+            # Remove existing displacement modifiers (clean slate)
+            for mod in list(obj.modifiers):
+                if mod.type == 'DISPLACE' and 'Canvas' in mod.name:
+                    obj.modifiers.remove(mod)
+                    
+            # Add Terrain_Subdivision modifier first (if not exists)
+            subsurf_mods = [mod for mod in obj.modifiers if mod.type == 'SUBSURF' and 'Terrain' in mod.name]
+            if not subsurf_mods:
+                subsurf = obj.modifiers.new('Terrain_Subdivision', 'SUBSURF')
+                subsurf.levels = 2
+                subsurf.render_levels = 2
+                print(f"    Added Terrain_Subdivision modifier")
+                    
+            # Add Canvas_Displacement modifier - SAME TEXTURE FOR ALL OBJECTS
             modifier = obj.modifiers.new('Canvas_Displacement', 'DISPLACE')
-            modifier.texture = canvas_texture      # SAME texture for ALL objects
-            modifier.texture_coords = 'UV'        # CRITICAL: UV coordinates
-            modifier.direction = 'Z'              # Z displacement
-            modifier.mid_level = 0.5              # SESSION 27 working value
-            modifier.strength = 2.0               # SESSION 27 working value
+            modifier.texture = canvas_texture  # UNIFIED: All objects use same texture
+            modifier.texture_coords = 'UV'    # CRITICAL: Each object reads its UV region
+            modifier.direction = 'Z'          # Displace in Z direction  
+            modifier.mid_level = 0.0          # Neutral displacement (WORKING VALUE)
+            modifier.strength = 1.0           # Displacement strength
             
-            print(f"    Added unified Canvas_Displacement modifier")
-        
-        print(f"✅ Unified canvas displacement added to {len(flat_objects)} objects")
-        print("ARCHITECTURE: All objects share same Canvas_Image_Texture via UV mapping")
+            print(f"    Added Canvas_Displacement modifier (UNIFIED texture via UV coords)")
+            
+        print(f"✅ UNIFIED displacement system added to {len(flat_objects)} objects")
+        print("RESULT: Paint on canvas U=0.1 affects object 2, U=0.5 affects object 6, etc.")
         return True
     
     def implement_complete_uv_canvas_system(self):
@@ -899,14 +880,14 @@ class UVCanvasIntegrationSystem:
             print("❌ Failed to set up UV mapping")
             return False
         
-        # Step 4: Add UNIFIED displacement modifiers (SESSION 27 CORRECT IMPLEMENTATION)
-        if not self.add_unified_canvas_displacement_modifiers():
+        # Step 4: Add UNIFIED displacement modifiers (all objects use SAME texture)
+        if not self.add_unified_displacement_modifiers(flat_objects, canvas_texture):
             print("❌ Failed to add displacement modifiers")
             return False
         
         print("🎉 UV-Canvas Integration Complete!")
         print(f"   - {len(flat_objects)} objects reading from UNIFIED canvas")
-        print(f"   - Each object reads its UV region via global coordinate mapping")
+        print(f"   - Each object reads its UV region (0.000-0.083, 0.083-0.167, etc.)")
         print(f"   - Single canvas texture: {self.canvas_name}")
         print(f"   - Paint anywhere on canvas → affects corresponding 3D area via UV")
         
