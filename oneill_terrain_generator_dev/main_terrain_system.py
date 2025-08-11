@@ -966,51 +966,10 @@ class UVCanvasIntegrationSystem:
         return True
     
     def add_unified_canvas_displacement_modifiers(self):
-        """Add unified canvas displacement modifiers - SESSION 27 CORRECT IMPLEMENTATION"""
-        print("🚀 Adding unified canvas displacement modifiers...")
-        
-        # Get flat objects
-        flat_objects = self.get_flat_objects()
-        if not flat_objects:
-            print("❌ No flat objects found")
-            return False
-        
-        # Create Canvas_Image_Texture
-        canvas_texture = self.create_canvas_image_texture()
-        if not canvas_texture:
-            print("❌ Failed to create canvas texture")
-            return False
-        
-        # CRITICAL: Remove ALL existing displacement modifiers first (clean slate)
-        print("Removing all existing displacement modifiers...")
-        for obj in flat_objects:
-            modifiers_to_remove = []
-            for mod in obj.modifiers:
-                if mod.type == 'DISPLACE':
-                    modifiers_to_remove.append(mod)
-            
-            for mod in modifiers_to_remove:
-                print(f"  Removing {mod.name} from {obj.name}")
-                obj.modifiers.remove(mod)
-        
-        # Add UNIFIED Canvas_Displacement modifiers to all objects
-        print("Adding unified Canvas_Displacement modifiers...")
-        for i, obj in enumerate(flat_objects, 1):
-            print(f"  Object {i}: {obj.name}")
-            
-            # Add Canvas_Displacement modifier - SESSION 27 UNIFIED APPROACH
-            modifier = obj.modifiers.new('Canvas_Displacement', 'DISPLACE')
-            modifier.texture = canvas_texture      # SAME texture for ALL objects
-            modifier.texture_coords = 'UV'        # CRITICAL: UV coordinates
-            modifier.direction = 'Z'              # Z displacement
-            modifier.mid_level = 0.5              # SESSION 27 working value
-            modifier.strength = 2.0               # SESSION 27 working value
-            
-            print(f"    Added unified Canvas_Displacement modifier")
-        
-        print(f"✅ Unified canvas displacement added to {len(flat_objects)} objects")
-        print("ARCHITECTURE: All objects share same Canvas_Image_Texture via UV mapping")
-        return True
+        """DISABLED: Add unified canvas displacement modifiers - REPLACED WITH GEOMETRY NODES"""
+        print("⚠️ Canvas displacement modifiers DISABLED - Use geometry nodes instead")
+        print("SESSION 36: Basic displacement replaced with sophisticated archipelago terrain")
+        return True  # Return success without actually adding modifiers
     
     def implement_complete_uv_canvas_system(self):
         """Implement complete UV-Canvas integration system - UNIFIED CANVAS APPROACH"""
@@ -1036,10 +995,9 @@ class UVCanvasIntegrationSystem:
             print("❌ Failed to set up UV mapping")
             return False
         
-        # Step 4: Add UNIFIED displacement modifiers (SESSION 27 CORRECT IMPLEMENTATION)
-        if not self.add_unified_canvas_displacement_modifiers():
-            print("❌ Failed to add displacement modifiers")
-            return False
+        # Step 4: DISABLED - Basic displacement replaced with geometry nodes
+        print("⚠️ Step 4 DISABLED: Basic displacement replaced with sophisticated geometry nodes")
+        # Do not add displacement modifiers - geometry nodes handle terrain generation
         
         print("🎉 UV-Canvas Integration Complete!")
         print(f"   - {len(flat_objects)} objects reading from UNIFIED canvas")
@@ -1310,37 +1268,39 @@ class ONEILL_OT_GenerateTerrain(Operator):
         self.report({'INFO'}, f"Generated terrain on {terrain_count} objects")
         return {'FINISHED'}
 
-class ONEILL_OT_SetupUVCanvasIntegration(Operator):
-    """Setup UV-Canvas Integration System from Session 24"""
-    bl_idname = "oneill.setup_uv_canvas_integration"
-    bl_label = "🔗 Setup UV-Canvas Integration"
+class ONEILL_OT_RemoveBasicDisplacementModifiers(Operator):
+    """Remove all basic displacement modifiers from flat objects"""
+    bl_idname = "oneill.remove_basic_displacement_modifiers"
+    bl_label = "🗑️ Remove Basic Displacement"
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
-        # Check if canvas exists
-        canvas_name = "oneill_terrain_canvas"
-        if canvas_name not in bpy.data.images:
-            self.report({'ERROR'}, "Canvas not found. Start terrain painting first.")
-            return {'CANCELLED'}
+        flat_objects = [obj for obj in bpy.data.objects if obj.get("oneill_flat")]
+        removed_count = 0
         
-        # Initialize UV-Canvas system
-        uv_system = UVCanvasIntegrationSystem()
-        
-        try:
-            success = uv_system.implement_complete_uv_canvas_system()
+        for obj in flat_objects:
+            modifiers_to_remove = []
+            for mod in obj.modifiers:
+                if mod.type == 'DISPLACE' and 'Canvas_Displacement' in mod.name:
+                    modifiers_to_remove.append(mod)
             
-            if success:
-                self.report({'INFO'}, "✅ UV-Canvas Integration complete! Paint-to-3D workflow active.")
-                print("🎉 Session 24 UV-Canvas Integration successfully applied!")
-            else:
-                self.report({'ERROR'}, "❌ UV-Canvas Integration failed - check console for details")
-                
-        except Exception as e:
-            self.report({'ERROR'}, f"UV-Canvas integration error: {str(e)}")
-            print(f"❌ UV-Canvas integration error: {e}")
-            return {'CANCELLED'}
+            for mod in modifiers_to_remove:
+                obj.modifiers.remove(mod)
+                removed_count += 1
+                print(f"Removed {mod.name} from {obj.name}")
         
+        self.report({'INFO'}, f"Removed {removed_count} basic displacement modifiers")
         return {'FINISHED'}
+
+class ONEILL_OT_SetupUVCanvasIntegration(Operator):
+    """Setup UV-Canvas Integration System from Session 24 - DISABLED TO PREVENT BASIC DISPLACEMENT"""
+    bl_idname = "oneill.setup_uv_canvas_integration"
+    bl_label = "🔗 Setup UV-Canvas Integration (DISABLED)"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        self.report({'WARNING'}, "UV-Canvas Integration disabled to prevent basic displacement conflicts. Use geometry nodes instead.")
+        return {'CANCELLED'}
 
 class ONEILL_OT_RewrapToCylinders(Operator):
     """Enhanced rewrap to cylinders with terrain data"""
@@ -1543,13 +1503,14 @@ class ONEILL_PT_MainPanel(Panel):
                                  text="🔍 Detect Paint & Apply Previews", 
                                  icon='BRUSH_DATA')
                 
-                # Session 24 UV-Canvas Integration
+                # Session 36 Geometry Nodes Integration
                 paint_box.separator()
-                uv_box = paint_box.box()
-                uv_box.label(text="Session 24 UV-Canvas Integration:", icon='UV')
-                uv_box.operator("oneill.setup_uv_canvas_integration", 
-                               text="🔗 Setup UV-Canvas Integration", 
-                               icon='UV')
+                geometry_box = paint_box.box()
+                geometry_box.label(text="Session 36 Geometry Nodes:", icon='GEOMETRY_NODES')
+                geometry_box.operator("oneill.remove_basic_displacement_modifiers", 
+                                    text="🗑️ Remove Basic Displacement", 
+                                    icon='TRASH')
+                geometry_box.label(text="Use Geometry Nodes for terrain instead", icon='INFO')
                 
                 paint_box.separator()
                 
@@ -1619,6 +1580,7 @@ classes = [
     ONEILL_OT_StartTerrainPainting,
     ONEILL_OT_ValidateTerrainLayout,
     ONEILL_OT_GenerateTerrain,
+    ONEILL_OT_RemoveBasicDisplacementModifiers,
     ONEILL_OT_SetupUVCanvasIntegration,
     ONEILL_OT_RewrapToCylinders,
     ONEILL_PT_MainPanel,
