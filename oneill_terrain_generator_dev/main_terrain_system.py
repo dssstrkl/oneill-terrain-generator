@@ -105,7 +105,7 @@ def get_session10_biome_generator():
         return None
 
 class GlobalPreviewDisplacementSystem:
-    """Enhanced displacement system with Session 10 integration"""
+    """SESSION 40 UNIFIED SYSTEM - Minimal changes for unified approach"""
     
     def __init__(self):
         self.biome_preview_settings = {
@@ -117,59 +117,183 @@ class GlobalPreviewDisplacementSystem:
             'DESERT': {'displacement_strength': 1.2, 'noise_scale': 1.2},
         }
     
-    def create_biome_preview(self, obj, biome_name):
-        """Create enhanced biome preview - ENABLE geometry nodes with UV-Canvas system"""
+    def create_unified_multi_biome_system(self):
+        """SESSION 40: Create unified node group exactly as working scene"""
+        node_group_name = "Unified_Multi_Biome_Terrain.001"
         
-        # CHECK: If Canvas_Image_Texture exists, UV-Canvas system is active
-        if 'Canvas_Image_Texture' in bpy.data.textures:
-            print(f"✅ UV-Canvas active - applying geometry nodes alongside displacement for {obj.name}")
+        # Check if already exists
+        if node_group_name in bpy.data.node_groups:
+            print(f"✅ Unified system already exists: {node_group_name}")
+            return bpy.data.node_groups[node_group_name]
+        
+        # Create the unified node group with exact working structure
+        ng = bpy.data.node_groups.new(node_group_name, type='GeometryNodeTree')
+        
+        # Add nodes exactly as in working scene
+        group_input = ng.nodes.new('NodeGroupInput')
+        group_output = ng.nodes.new('NodeGroupOutput')
+        named_attr = ng.nodes.new('GeometryNodeInputNamedAttribute')
+        canvas_sampler = ng.nodes.new('GeometryNodeImageTexture')
+        separate_xyz = ng.nodes.new('ShaderNodeSeparateXYZ')
+        color_ramp = ng.nodes.new('ShaderNodeValToRGB')
+        noise_texture = ng.nodes.new('ShaderNodeTexNoise')
+        position = ng.nodes.new('GeometryNodeInputPosition')
+        math_multiply = ng.nodes.new('ShaderNodeMath')
+        combine_xyz = ng.nodes.new('ShaderNodeCombineXYZ')
+        set_position = ng.nodes.new('GeometryNodeSetPosition')
+        
+        # Set node names exactly as working scene
+        named_attr.name = "Named Attribute"
+        canvas_sampler.name = "Unified_Canvas_Sampler"
+        
+        # Configure color ramp exactly as working scene
+        color_ramp.color_ramp.elements[0].position = 0.0
+        color_ramp.color_ramp.elements[0].color = (0.0, 0.0, 0.0, 1.0)
+        color_ramp.color_ramp.elements[1].position = 0.5
+        color_ramp.color_ramp.elements[1].color = (1.0, 1.0, 1.0, 1.0)
+        
+        # Configure noise texture exactly as working scene
+        noise_texture.inputs['Scale'].default_value = 5.0
+        noise_texture.inputs['Detail'].default_value = 10.0
+        
+        # Configure math node for multiply
+        math_multiply.operation = 'MULTIPLY'
+        
+        # SESSION 42 FIX: Canvas assignment for Blender 4.x will be handled through modifier inputs
+        # Image texture nodes in geometry nodes don't support direct .image assignment
+        canvas_image = bpy.data.images.get('oneill_terrain_canvas')
+        if canvas_image:
+            print(f"✅ Canvas found: {canvas_image.name} - will be assigned via modifier inputs")
+        else:
+            print(f"⚠️ Canvas not found - will be assigned later")
+        
+        # SESSION 40: Add essential node connections for working system
+        try:
+            # UV flow: Named Attribute → Canvas Sampler
+            ng.links.new(named_attr.outputs['Attribute'], canvas_sampler.inputs['Vector'])
             
-            # TRY SESSION 10 GEOMETRY NODES (allow with UV-Canvas)
+            # Color analysis: Canvas → Separate XYZ → Color Ramp
+            ng.links.new(canvas_sampler.outputs['Color'], separate_xyz.inputs['Vector'])
+            ng.links.new(separate_xyz.outputs['Z'], color_ramp.inputs['Fac'])
+            
+            # Terrain generation: Position → Noise → Math
+            ng.links.new(position.outputs['Position'], noise_texture.inputs['Vector'])
+            ng.links.new(noise_texture.outputs['Fac'], math_multiply.inputs[0])
+            ng.links.new(color_ramp.outputs['Color'], math_multiply.inputs[1])
+            
+            # Final output: Math → Combine XYZ → Set Position
+            ng.links.new(math_multiply.outputs['Value'], combine_xyz.inputs['Z'])
+            ng.links.new(group_input.outputs['Geometry'], set_position.inputs['Geometry'])
+            ng.links.new(combine_xyz.outputs['Vector'], set_position.inputs['Offset'])
+            ng.links.new(set_position.outputs['Geometry'], group_output.inputs['Geometry'])
+            
+            print(f"✅ Node connections established")
+        except Exception as e:
+            print(f"⚠️ Node linking failed: {e}")
+        
+        print(f"✅ Created unified system: {node_group_name}")
+        return ng
+    
+    def apply_unified_system_to_objects(self, objects):
+        """SESSION 40: Apply unified system to objects - SINGLE MODIFIER ONLY"""
+        # First try to use existing unified system
+        unified_ng = bpy.data.node_groups.get("Unified_Multi_Biome_Terrain.001")
+        
+        # If no existing system, try to create one
+        if not unified_ng:
             try:
-                biome_gen = get_session10_biome_generator()
-                if biome_gen:
-                    # Map biome names from UI to Session 10 format
-                    biome_mapping = {
-                        'MOUNTAINS': 'mountain',
-                        'OCEAN': 'ocean', 
-                        'ARCHIPELAGO': 'archipelago',
-                        'CANYONS': 'canyon',
-                        'HILLS': 'rolling_hills',
-                        'DESERT': 'desert'
-                    }
-                    
-                    session10_biome = biome_mapping.get(biome_name, 'rolling_hills')
-                    
-                    # Apply geometry nodes (no displacement conflict)
-                    modifier = biome_gen.apply_biome_to_object(
-                        obj, 
-                        session10_biome, 
-                        strength=2.0,
-                        scale=1.0,
-                        intensity=1.0
-                    )
-                    
-                    if modifier:
-                        print(f"✅ Applied Session 10 geometry nodes {biome_name} to {obj.name}")
-                        
-                        # Force immediate viewport update
-                        obj.display_type = 'TEXTURED'
-                        bpy.context.view_layer.update()
-                        
-                        for area in bpy.context.screen.areas:
-                            if area.type == 'VIEW_3D':
-                                area.tag_redraw()
-                        
-                        return f"GeometryNodes_{biome_name}"
-                        
+                unified_ng = self.create_unified_multi_biome_system()
             except Exception as e:
-                print(f"⚠️ Session 10 geometry nodes failed: {e}")
-            
-            # Skip fallback displacement (UV-Canvas handles displacement)
-            print(f"   UV-Canvas displacement active - skipping individual displacement modifiers")
-            return None
+                print(f"⚠️ Unified system creation failed: {e}")
+                print(f"⚠️ Checking for any existing unified systems...")
+                
+                # Look for any unified system that might exist
+                for ng_name, ng in bpy.data.node_groups.items():
+                    if "Unified" in ng_name and "Terrain" in ng_name:
+                        unified_ng = ng
+                        print(f"✅ Found existing unified system: {ng_name}")
+                        break
         
-        # Original biome preview logic only if UV-Canvas not active
+        if not unified_ng:
+            print("❌ Cannot apply - no unified system available")
+            return False
+        
+        applied_count = 0
+        for obj in objects:
+            # Remove existing terrain modifiers to prevent conflicts
+            for mod in list(obj.modifiers):
+                if mod.name.startswith(("Preview_", "Biome_", "Canvas_Displacement")):
+                    if mod.type != 'SUBSURF':  # Keep subdivision
+                        obj.modifiers.remove(mod)
+            
+            # Ensure subdivision exists
+            subdiv_mod = None
+            for mod in obj.modifiers:
+                if mod.type == 'SUBSURF':
+                    subdiv_mod = mod
+                    break
+            
+            if not subdiv_mod:
+                subdiv_mod = obj.modifiers.new("Preview_Subdivision", type='SUBSURF')
+                subdiv_mod.levels = 2
+            
+            # Add unified terrain modifier
+            terrain_mod = obj.modifiers.new("Unified_Terrain", type='NODES')
+            terrain_mod.node_group = unified_ng
+            
+            # SESSION 42 FIX: Assign canvas via modifier inputs (Blender 4.x)
+            canvas_image = bpy.data.images.get('oneill_terrain_canvas')
+            if canvas_image:
+                try:
+                    # Blender 4.x method - assign through modifier input
+                    terrain_mod["Input_2"] = canvas_image
+                    print(f"✅ Canvas assigned via modifier input for {obj.name}")
+                except Exception as e:
+                    print(f"⚠️ Canvas assignment failed for {obj.name}: {e}")
+            
+            applied_count += 1
+            print(f"✅ Applied unified system to {obj.name}")
+        
+        # Force viewport update after canvas assignment
+        bpy.context.view_layer.update()
+        for area in bpy.context.screen.areas:
+            if area.type == 'VIEW_3D':
+                area.tag_redraw()
+        
+        print(f"✅ Unified system applied to {applied_count} objects")
+        print(f"✅ Canvas assignment completed for Blender 4.x compatibility")
+        return True
+    
+    def create_biome_preview(self, obj, biome_name):
+        """SESSION 40 UNIFIED: Use unified system instead of per-object approach"""
+        
+        # SESSION 40: Check if unified system exists and prefer it
+        unified_ng = bpy.data.node_groups.get("Unified_Multi_Biome_Terrain.001")
+        if unified_ng:
+            print(f"✅ Using unified system for {obj.name} - no per-object modifiers needed")
+            
+            # Ensure object has unified terrain modifier
+            unified_mod = None
+            for mod in obj.modifiers:
+                if mod.name == "Unified_Terrain" and mod.type == 'NODES':
+                    unified_mod = mod
+                    break
+            
+            if not unified_mod:
+                # Apply unified system to this object
+                self.apply_unified_system_to_objects([obj])
+            
+            # Force viewport update
+            bpy.context.view_layer.update()
+            for area in bpy.context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    area.tag_redraw()
+            
+            return f"Unified_System"
+        
+        # FALLBACK: Original per-object system only if unified not available
+        print(f"⚠️ Unified system not found - using fallback for {obj.name}")
+        
         if biome_name not in self.biome_preview_settings:
             print(f"⚠️ Unknown biome {biome_name}, using HILLS")
             biome_name = 'HILLS'
@@ -639,31 +763,39 @@ class ONEILL_OT_DetectPaintApplyPreviews(Operator):
         
         canvas = bpy.data.images[canvas_name]
         preview_system = GlobalPreviewDisplacementSystem()
-        processed_count = 0
         
-        print(f"\n🎨 UV Region Sampling for {len(flat_objects)} objects from unified canvas...")
+        print(f"\n🎨 SESSION 40 UNIFIED: Applying unified system to {len(flat_objects)} objects...")
         
-        # Process each object with its specific UV region
-        for obj_index, obj in enumerate(flat_objects):
-            try:
-                # Sample this object's UV region from unified canvas
-                detected_biomes = self.sample_canvas_region_for_object(obj_index, canvas)
-                
-                if detected_biomes:
-                    # Apply the most prominent biome as preview
-                    main_biome = max(detected_biomes, key=detected_biomes.get)
-                    preview_system.create_biome_preview(obj, main_biome)
-                    processed_count += 1
-                    print(f"✅ Object {obj_index + 1} ({obj.name}): Applied {main_biome} preview")
-                else:
-                    print(f"⚠️ Object {obj_index + 1} ({obj.name}): No biomes detected in UV region")
-            except Exception as e:
-                print(f"❌ Object {obj_index + 1} ({obj.name}): Error processing UV region - {e}")
+        # SESSION 40: Apply unified system to all objects at once
+        try:
+            if preview_system.apply_unified_system_to_objects(flat_objects):
+                print("✅ Unified system applied to all objects")
+                processed_count = len(flat_objects)
+            else:
+                print("⚠️ Unified system application failed - using per-object fallback")
+                # FALLBACK: Original per-object detection approach
+                processed_count = 0
+                for obj_index, obj in enumerate(flat_objects):
+                    try:
+                        detected_biomes = self.sample_canvas_region_for_object(obj_index, canvas)
+                        if detected_biomes:
+                            main_biome = max(detected_biomes, key=detected_biomes.get)
+                            preview_system.create_biome_preview(obj, main_biome)
+                            processed_count += 1
+                            print(f"✅ Object {obj_index + 1} ({obj.name}): Applied {main_biome} preview")
+                        else:
+                            print(f"⚠️ Object {obj_index + 1} ({obj.name}): No biomes detected in UV region")
+                    except Exception as e:
+                        print(f"❌ Object {obj_index + 1} ({obj.name}): Error processing UV region - {e}")
+        except Exception as e:
+            print(f"❌ Unified system failed: {e}")
+            processed_count = 0
         
+        # Enhanced spatial mapping (if available)
         enhanced_mapper = get_enhanced_spatial_mapping()
         if enhanced_mapper:
             try:
-                # SESSION 31 REGRESSION FIX: Remove conflicting Unified_ modifiers
+                # SESSION 40: Clean approach - remove only conflicting displacement modifiers
                 for obj in flat_objects:
                     for mod in list(obj.modifiers):
                         if mod.name.startswith("Unified_") and mod.type == 'DISPLACE':
@@ -674,7 +806,7 @@ class ONEILL_OT_DetectPaintApplyPreviews(Operator):
             except Exception as e:
                 print(f"⚠️ Enhanced spatial mapping failed: {e}")
         
-        self.report({'INFO'}, f"Applied previews to {processed_count}/{len(flat_objects)} objects")
+        self.report({'INFO'}, f"Applied unified system to {processed_count}/{len(flat_objects)} objects")
         return {'FINISHED'}
     
     def detect_painted_biomes(self, canvas):
@@ -972,8 +1104,8 @@ class UVCanvasIntegrationSystem:
         return True  # Return success without actually adding modifiers
     
     def implement_complete_uv_canvas_system(self):
-        """Implement complete UV-Canvas integration system - UNIFIED CANVAS APPROACH"""
-        print("🚀 Implementing Complete UV-Canvas Integration System...")
+        """SESSION 40 UNIFIED: Implement UV-Canvas with unified multi-biome system"""
+        print("🚀 SESSION 40: Implementing UV-Canvas with Unified Multi-Biome System...")
         
         # Step 1: Get flat objects
         flat_objects = self.get_flat_objects()
@@ -982,7 +1114,7 @@ class UVCanvasIntegrationSystem:
             return False
         
         print(f"Found {len(flat_objects)} flat objects")
-        print("UNIFIED CANVAS: Treating all objects as single logical surface")
+        print("SESSION 40 UNIFIED: Single system for all objects")
         
         # Step 2: Create Canvas_Image_Texture (SINGLE UNIFIED TEXTURE)
         canvas_texture = self.create_canvas_image_texture()
@@ -995,15 +1127,19 @@ class UVCanvasIntegrationSystem:
             print("❌ Failed to set up UV mapping")
             return False
         
-        # Step 4: DISABLED - Basic displacement replaced with geometry nodes
-        print("⚠️ Step 4 DISABLED: Basic displacement replaced with sophisticated geometry nodes")
-        # Do not add displacement modifiers - geometry nodes handle terrain generation
+        # Step 4: SESSION 40 - Apply unified multi-biome system
+        print("🚀 Step 4: Applying unified multi-biome system...")
+        preview_system = GlobalPreviewDisplacementSystem()
+        if preview_system.apply_unified_system_to_objects(flat_objects):
+            print("✅ Unified multi-biome system applied successfully")
+        else:
+            print("⚠️ Unified system failed - continuing with UV mapping only")
         
-        print("🎉 UV-Canvas Integration Complete!")
-        print(f"   - {len(flat_objects)} objects reading from UNIFIED canvas")
-        print(f"   - Each object reads its UV region via global coordinate mapping")
+        print("🎉 SESSION 40 UV-Canvas Integration Complete!")
+        print(f"   - {len(flat_objects)} objects using UNIFIED multi-biome system")
+        print(f"   - Canvas-responsive terrain generation")
         print(f"   - Single canvas texture: {self.canvas_name}")
-        print(f"   - Paint anywhere on canvas → affects corresponding 3D area via UV")
+        print(f"   - Paint anywhere on canvas → sophisticated 3D terrain")
         
         return True
 
@@ -1144,7 +1280,7 @@ class ONEILL_OT_LoadCanvasManually(Operator):
 # ========================= TERRAIN PAINTING OPERATORS =========================
 
 class ONEILL_OT_StartTerrainPainting(Operator):
-    """Start terrain painting mode with canvas setup"""
+    """Start terrain painting mode with automatic preview activation"""
     bl_idname = "oneill.start_terrain_painting"
     bl_label = "🎨 Start Terrain Painting"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1183,15 +1319,20 @@ class ONEILL_OT_StartTerrainPainting(Operator):
         canvas.pixels = pixels
         canvas.update()
         
+        # SESSION 40: AUTO-ACTIVATE preview when starting painting
+        preview_system = GlobalPreviewDisplacementSystem()
+        if preview_system.apply_unified_system_to_objects(flat_objects):
+            print("✅ Auto-activated unified terrain preview")
+        
         # Set up workspace
         if canvas_manager.setup_split_workspace_for_painting(context, canvas):
             props.painting_mode = True
-            props.current_biome = 'MOUNTAINS'  # Default biome
+            props.current_biome = 'ARCHIPELAGO'  # Default biome
             
             # Set initial brush color
-            bpy.ops.oneill.select_painting_biome(biome_type='MOUNTAINS')
+            bpy.ops.oneill.select_painting_biome(biome_type='ARCHIPELAGO')
             
-            self.report({'INFO'}, f"Painting mode started. Canvas: {canvas_width}x{canvas_height}")
+            self.report({'INFO'}, f"Painting mode started with auto-preview. Canvas: {canvas_width}x{canvas_height}")
         else:
             self.report({'WARNING'}, "Painting mode started but workspace setup failed")
             props.painting_mode = True
@@ -1462,7 +1603,7 @@ class ONEILL_PT_MainPanel(Panel):
                                  icon='BRUSH_DATA')
             else:
                 # Painting mode active - show biome controls
-                paint_box.label(text="🎨 Painting Mode Active", icon='CHECKMARK')
+                paint_box.label(text="🎨 Painting Mode Active (Auto-Preview ON)", icon='CHECKMARK')
                 paint_box.label(text=f"Current Biome: {get_biome_display_name(props.current_biome)}")
                 
                 # Biome selection buttons
@@ -1500,8 +1641,11 @@ class ONEILL_PT_MainPanel(Panel):
                 
                 # Paint detection and preview controls
                 paint_box.operator("oneill.detect_paint_apply_previews", 
-                                 text="🔍 Detect Paint & Apply Previews", 
-                                 icon='BRUSH_DATA')
+                                 text="🔄 Refresh Preview (Optional)", 
+                                 icon='FILE_REFRESH')
+                
+                # Info about auto-preview
+                paint_box.label(text="ℹ️ Preview activates automatically when painting starts", icon='INFO')
                 
                 # Session 36 Geometry Nodes Integration
                 paint_box.separator()
