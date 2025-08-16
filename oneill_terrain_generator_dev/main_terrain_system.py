@@ -402,7 +402,19 @@ class ONEILL_OT_StartTerrainPainting(Operator):
         preview_system = GlobalPreviewDisplacementSystem()
         if preview_system.apply_unified_system_to_objects(flat_objects):
             print("✅ Auto-activated unified terrain preview")
-            self.report({'INFO'}, f"Painting mode started with auto-preview. Canvas: 2400x628")
+            
+            # SESSION 48 AUTO-PREVIEW: Call existing working detect_paint_apply_previews
+            # This uses the proven Phase 1A paint detection system
+            if hasattr(bpy.ops.oneill, 'detect_paint_apply_previews'):
+                try:
+                    bpy.ops.oneill.detect_paint_apply_previews()
+                    print("✅ Auto-activated paint detection preview")
+                    self.report({'INFO'}, f"Painting mode started with full auto-preview active. Canvas: 2400x628")
+                except Exception as e:
+                    print(f"⚠️ Paint detection failed: {e}")
+                    self.report({'INFO'}, f"Painting mode started. Canvas: 2400x628")
+            else:
+                self.report({'INFO'}, f"Painting mode started with unified system. Canvas: 2400x628")
         else:
             self.report({'WARNING'}, "Painting mode started but auto-preview failed")
             
@@ -450,6 +462,128 @@ class ONEILL_OT_StartTerrainPainting(Operator):
             print(f"⚠️ Workspace split failed: {e}")
             
         return False
+
+# ========================= PAINT DETECTION OPERATOR =========================
+
+class ONEILL_OT_DetectPaintApplyPreviews(Operator):
+    """Enhanced paint detection with Session 10 integration and UV region sampling"""
+    bl_idname = "oneill.detect_paint_apply_previews"
+    bl_label = "🔍 Detect Paint & Apply Previews"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        props = context.scene.oneill_props
+        
+        # Check if unified canvas exists
+        canvas_name = 'oneill_terrain_canvas'
+        if canvas_name not in bpy.data.images:
+            self.report({'ERROR'}, "Unified canvas not found. Start terrain painting first.")
+            return {'CANCELLED'}
+        
+        # Find all flat objects
+        flat_objects = [obj for obj in bpy.data.objects if obj.get("oneill_flat")]
+        if not flat_objects:
+            self.report({'ERROR'}, "No flat objects found for paint detection")
+            return {'CANCELLED'}
+        
+        # Sort objects by X position for consistent UV region mapping
+        flat_objects.sort(key=lambda obj: obj.location.x)
+        
+        canvas = bpy.data.images[canvas_name]
+        preview_system = GlobalPreviewDisplacementSystem()
+        processed_count = 0
+        
+        print(f"\n🎨 UV Region Sampling for {len(flat_objects)} objects from unified canvas...")
+        
+        # Process each object with its specific UV region
+        for obj_index, obj in enumerate(flat_objects):
+            try:
+                # Sample this object's UV region from unified canvas
+                detected_biomes = self.sample_canvas_region_for_object(obj_index, canvas)
+                
+                if detected_biomes:
+                    # Apply the most prominent biome as preview
+                    main_biome = max(detected_biomes, key=detected_biomes.get)
+                    preview_system.create_biome_preview(obj, main_biome)
+                    processed_count += 1
+                    print(f"✅ Object {obj_index + 1} ({obj.name}): Applied {main_biome} preview")
+                else:
+                    print(f"⚠️ Object {obj_index + 1} ({obj.name}): No biomes detected in UV region")
+            except Exception as e:
+                print(f"❌ Object {obj_index + 1} ({obj.name}): Error processing UV region - {e}")
+        
+        self.report({'INFO'}, f"Applied previews to {processed_count}/{len(flat_objects)} objects")
+        return {'FINISHED'}
+    
+    def sample_canvas_region_for_object(self, object_index, canvas):
+        """Sample the UV-mapped region of unified canvas for a specific flat object"""
+        canvas_width, canvas_height = canvas.size
+        pixels = list(canvas.pixels)
+        
+        # Calculate UV region for this object (each object gets 1/12th of canvas width)
+        num_objects = 12  # Total flat objects
+        u_start = object_index / num_objects  # 0.000, 0.083, 0.167, etc.
+        u_end = (object_index + 1) / num_objects
+        
+        # Convert UV coordinates to pixel coordinates
+        pixel_x_start = int(u_start * canvas_width)
+        pixel_x_end = int(u_end * canvas_width)
+        
+        print(f"  Object {object_index + 1}: UV region {u_start:.3f}-{u_end:.3f} → pixels {pixel_x_start}-{pixel_x_end}")
+        
+        # Sample colors within this UV region
+        return self.analyze_canvas_colors(pixels, canvas_width, canvas_height, 
+                                        pixel_x_start, pixel_x_end)
+    
+    def analyze_canvas_colors(self, canvas_pixels, canvas_width, canvas_height, 
+                            pixel_x_start, pixel_x_end):
+        """Analyze canvas region to determine dominant biome"""
+        biome_colors = {
+            'MOUNTAINS': (0.5, 0.5, 0.5),
+            'OCEAN': (0.1, 0.3, 0.8),
+            'ARCHIPELAGO': (0.2, 0.8, 0.9),
+            'CANYONS': (0.8, 0.4, 0.2),
+            'HILLS': (0.4, 0.8, 0.3),
+            'DESERT': (0.9, 0.8, 0.4),
+        }
+        
+        detected_biomes = {}
+        sample_count = 0
+        
+        # Sample pixels within the X range, across the full Y range
+        sample_step_x = max(1, (pixel_x_end - pixel_x_start) // 20)  # 20 samples across width
+        sample_step_y = max(1, canvas_height // 10)  # 10 samples across height
+        
+        for x in range(pixel_x_start, pixel_x_end, sample_step_x):
+            for y in range(0, canvas_height, sample_step_y):
+                pixel_idx = (y * canvas_width + x) * 4
+                
+                if pixel_idx + 2 < len(canvas_pixels):
+                    pixel_color = (canvas_pixels[pixel_idx], 
+                                 canvas_pixels[pixel_idx + 1], 
+                                 canvas_pixels[pixel_idx + 2])
+                    
+                    # Skip black/unpainted pixels
+                    if sum(pixel_color) < 0.1:
+                        continue
+                    
+                    sample_count += 1
+                    
+                    # Find closest biome color
+                    closest_biome = None
+                    min_distance = float('inf')
+                    
+                    for biome, color in biome_colors.items():
+                        distance = sum((a - b) ** 2 for a, b in zip(pixel_color, color)) ** 0.5
+                        if distance < min_distance and distance < 0.3:  # Tolerance
+                            min_distance = distance
+                            closest_biome = biome
+                    
+                    if closest_biome:
+                        detected_biomes[closest_biome] = detected_biomes.get(closest_biome, 0) + 1
+        
+        print(f"    Sampled {sample_count} painted pixels, detected biomes: {detected_biomes}")
+        return detected_biomes
 
 # ========================= UI PANEL =========================
 
@@ -629,6 +763,7 @@ classes = [
     ONEILL_OT_CreateHeightmaps,
     ONEILL_OT_StartTerrainPainting,
     ONEILL_OT_SelectPaintingBiome,
+    ONEILL_OT_DetectPaintApplyPreviews,
     ONEILL_PT_MainPanel,
 ]
 
