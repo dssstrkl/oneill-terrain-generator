@@ -5,749 +5,513 @@ import random
 
 class BiomeGeometryGenerator:
     """
-    Generates geometry node groups for O'Neill cylinder biomes in Python.
-    Designed to integrate with Phase 1 terrain painting system.
+    Creates UNIFIED canvas-integrated geometry node group for O'Neill cylinder biomes.
+    SESSION 40 APPROACH: Single node group with canvas sampling and hard-coded biome logic.
+    UNIFIED SYSTEM: All 6 biomes processed in one geometry node group.
     """
     
     def __init__(self):
-        self.biome_types = [
-            'archipelago',
-            'mountain', 
-            'canyon',
-            'rolling_hills',
-            'desert',
-            'ocean'
-        ]
-        self.generated_node_groups = {}
+        self.biome_colors = {
+            'MOUNTAINS': (0.5, 0.5, 0.5),    # Gray
+            'OCEAN': (0.1, 0.3, 0.8),        # Deep blue
+            'ARCHIPELAGO': (0.2, 0.8, 0.9),  # Light blue/cyan
+            'CANYONS': (0.8, 0.4, 0.2),      # Orange-red
+            'HILLS': (0.4, 0.8, 0.3),        # Green
+            'DESERT': (0.9, 0.8, 0.4),       # Sandy yellow
+        }
         
-    def create_biome_node_group(self, biome_name):
-        """Create a geometry node group for specified biome"""
+        self.biome_terrain_parameters = {
+            'MOUNTAINS': {
+                'displacement_strength': 3.0,
+                'noise_scale_primary': 4.0,
+                'noise_scale_secondary': 12.0,
+                'roughness': 0.8,
+                'detail_level': 8.0
+            },
+            'ARCHIPELAGO': {
+                'displacement_strength': 2.5,
+                'noise_scale_primary': 2.0,
+                'noise_scale_secondary': 8.0,
+                'roughness': 0.6,
+                'detail_level': 6.0
+            },
+            'CANYONS': {
+                'displacement_strength': 3.5,
+                'noise_scale_primary': 3.0,
+                'noise_scale_secondary': 10.0,
+                'roughness': 0.9,
+                'detail_level': 7.0
+            },
+            'HILLS': {
+                'displacement_strength': 1.5,
+                'noise_scale_primary': 1.5,
+                'noise_scale_secondary': 6.0,
+                'roughness': 0.4,
+                'detail_level': 4.0
+            },
+            'DESERT': {
+                'displacement_strength': 2.0,
+                'noise_scale_primary': 2.5,
+                'noise_scale_secondary': 9.0,
+                'roughness': 0.7,
+                'detail_level': 5.0
+            },
+            'OCEAN': {
+                'displacement_strength': -1.5,  # Negative for underwater
+                'noise_scale_primary': 1.8,
+                'noise_scale_secondary': 7.0,
+                'roughness': 0.5,
+                'detail_level': 3.0
+            }
+        }
         
-        if biome_name not in self.biome_types:
-            raise ValueError(f"Biome '{biome_name}' not supported. Available: {self.biome_types}")
-            
-        node_group_name = f"ONeill_Biome_{biome_name.title()}"
+        self.unified_node_group = None
+    
+    def create_unified_canvas_terrain_system(self):
+        """
+        Create the single unified geometry node group for all biomes.
+        SESSION 40 PATTERN: Canvas sampling + biome-specific terrain generation.
+        """
+        node_group_name = "Unified_Multi_Biome_Terrain_Enhanced"
         
         # Check if already exists
         if node_group_name in bpy.data.node_groups:
-            print(f"Node group {node_group_name} already exists, using existing")
-            return bpy.data.node_groups[node_group_name]
-            
+            print(f"✅ Node group {node_group_name} already exists")
+            self.unified_node_group = bpy.data.node_groups[node_group_name]
+            return self.unified_node_group
+        
         # Create new geometry node group
         node_group = bpy.data.node_groups.new(node_group_name, 'GeometryNodeTree')
         
         # Create input and output nodes
-        input_node = node_group.nodes.new('NodeGroupInput')
-        output_node = node_group.nodes.new('NodeGroupOutput')
+        group_input = node_group.nodes.new('NodeGroupInput')
+        group_output = node_group.nodes.new('NodeGroupOutput')
+        group_input.location = (-1000, 0)
+        group_output.location = (1000, 0)
         
-        input_node.location = (-400, 0)
-        output_node.location = (400, 0)
-        
-        # Define standard inputs for all biomes
+        # SESSION 40 STANDARD INTERFACE
         node_group.interface.new_socket('Geometry', socket_type='NodeSocketGeometry', in_out='INPUT')
-        node_group.interface.new_socket('Heightmap_Strength', socket_type='NodeSocketFloat', in_out='INPUT')
-        node_group.interface.new_socket('Feature_Scale', socket_type='NodeSocketFloat', in_out='INPUT')
-        node_group.interface.new_socket('Biome_Intensity', socket_type='NodeSocketFloat', in_out='INPUT')
+        node_group.interface.new_socket('Canvas_Image', socket_type='NodeSocketObject', in_out='INPUT') 
+        node_group.interface.new_socket('Terrain_Strength_Multiplier', socket_type='NodeSocketFloat', in_out='INPUT')
         
         # Set default values
-        heightmap_input = node_group.interface.items_tree['Heightmap_Strength']
-        heightmap_input.default_value = 1.0
-        heightmap_input.min_value = 0.0
-        heightmap_input.max_value = 5.0
-        
-        scale_input = node_group.interface.items_tree['Feature_Scale']
-        scale_input.default_value = 1.0
-        scale_input.min_value = 0.1
-        scale_input.max_value = 10.0
-        
-        intensity_input = node_group.interface.items_tree['Biome_Intensity']
-        intensity_input.default_value = 1.0
-        intensity_input.min_value = 0.0
-        intensity_input.max_value = 2.0
+        strength_input = node_group.interface.items_tree['Terrain_Strength_Multiplier']
+        strength_input.default_value = 1.0
+        strength_input.min_value = 0.0
+        strength_input.max_value = 5.0
         
         # Define output
         node_group.interface.new_socket('Geometry', socket_type='NodeSocketGeometry', in_out='OUTPUT')
         
-        # Now create biome-specific node network
-        if biome_name == 'mountain':
-            self._create_mountain_nodes(node_group, input_node, output_node)
-        elif biome_name == 'archipelago':
-            self._create_archipelago_nodes(node_group, input_node, output_node)
-        elif biome_name == 'canyon':
-            self._create_canyon_nodes(node_group, input_node, output_node)
-        elif biome_name == 'rolling_hills':
-            self._create_rolling_hills_nodes(node_group, input_node, output_node)
-        elif biome_name == 'desert':
-            self._create_desert_nodes(node_group, input_node, output_node)
-        elif biome_name == 'ocean':
-            self._create_ocean_nodes(node_group, input_node, output_node)
-            
-        self.generated_node_groups[biome_name] = node_group
-        print(f"Created biome node group: {node_group_name}")
+        # Build the unified canvas-to-terrain workflow
+        self._build_unified_terrain_workflow(node_group, group_input, group_output)
+        
+        self.unified_node_group = node_group
+        print(f"✅ Created unified canvas terrain system: {node_group_name}")
         return node_group
     
-    def _create_mountain_nodes(self, node_group, input_node, output_node):
-        """Create mountain terrain with dramatic peaks and elevation gradients"""
+    def _build_unified_terrain_workflow(self, node_group, group_input, group_output):
+        """
+        Build the complete canvas-to-terrain workflow with biome-specific generation.
+        MAINTAINABLE DESIGN: Clear node organization and variable names.
+        """
         nodes = node_group.nodes
         links = node_group.links
         
-        # Position node - get vertex positions
-        position = nodes.new('GeometryNodeInputPosition')
-        position.location = (-300, 200)
+        # ===== CANVAS SAMPLING SECTION =====
+        uv_coordinates = self._create_uv_coordinate_input(nodes, (-800, 200))
+        canvas_sampler = self._create_canvas_sampler(nodes, (-600, 0))
         
-        # Noise texture for mountain features
-        noise = nodes.new('ShaderNodeTexNoise')
-        noise.location = (-200, 300)
-        noise.inputs['Scale'].default_value = 3.0
-        noise.inputs['Detail'].default_value = 8.0
-        noise.inputs['Roughness'].default_value = 0.7
+        # Connect UV to canvas sampler
+        links.new(uv_coordinates.outputs['Attribute'], canvas_sampler.inputs['Vector'])
+        links.new(group_input.outputs['Canvas_Image'], canvas_sampler.inputs['Image'])
         
-        # Secondary noise for fine details  
-        noise2 = nodes.new('ShaderNodeTexNoise')
-        noise2.location = (-200, 100)
-        noise2.inputs['Scale'].default_value = 15.0
-        noise2.inputs['Detail'].default_value = 4.0
-        noise2.inputs['Roughness'].default_value = 0.5
+        # ===== BIOME DETECTION SECTION =====
+        biome_detector = self._create_biome_color_detector(nodes, (-400, 0))
+        links.new(canvas_sampler.outputs['Color'], biome_detector['input'])
+        
+        # ===== TERRAIN GENERATION SECTION =====
+        terrain_generators = self._create_biome_terrain_generators(nodes, (-200, 0))
+        
+        # ===== BIOME MIXING SECTION =====
+        terrain_mixer = self._create_terrain_mixer(nodes, (200, 0), terrain_generators, biome_detector)
+        
+        # ===== FINAL DISPLACEMENT SECTION =====
+        displacement_applicator = self._create_displacement_applicator(nodes, (600, 0))
+        
+        # Connect strength multiplier
+        strength_multiplier = nodes.new('ShaderNodeMath')
+        strength_multiplier.name = "Strength_Multiplier"
+        strength_multiplier.location = (400, 200)
+        strength_multiplier.operation = 'MULTIPLY'
+        
+        links.new(terrain_mixer['output'], strength_multiplier.inputs[0])
+        links.new(group_input.outputs['Terrain_Strength_Multiplier'], strength_multiplier.inputs[1])
+        links.new(strength_multiplier.outputs['Value'], displacement_applicator.inputs['Displacement'])
+        
+        # Final connections
+        links.new(group_input.outputs['Geometry'], displacement_applicator.inputs['Geometry'])
+        links.new(displacement_applicator.outputs['Geometry'], group_output.inputs['Geometry'])
+        
+        print("✅ Built unified terrain workflow with biome-specific generation")
+    
+    def _create_uv_coordinate_input(self, nodes, location):
+        """Create UV coordinate input for canvas sampling."""
+        uv_input = nodes.new('GeometryNodeInputNamedAttribute')
+        uv_input.name = "UV_Coordinates"
+        uv_input.label = "UV Coordinates"
+        uv_input.location = location
+        uv_input.data_type = 'FLOAT_VECTOR'
+        uv_input.inputs['Name'].default_value = 'UVMap'
+        return uv_input
+    
+    def _create_canvas_sampler(self, nodes, location):
+        """Create canvas sampling node."""
+        canvas_sampler = nodes.new('GeometryNodeImageTexture')
+        canvas_sampler.name = "Canvas_Sampler"
+        canvas_sampler.label = "Canvas Sampler"
+        canvas_sampler.location = location
+        canvas_sampler.interpolation = 'Linear'
+        return canvas_sampler
+    
+    def _create_biome_color_detector(self, nodes, location):
+        """
+        Create biome detection logic based on canvas colors.
+        RETURNS: Dictionary with biome detection outputs.
+        """
+        # Color separation for RGB analysis
+        separate_rgb = nodes.new('ShaderNodeSeparateRGB')
+        separate_rgb.name = "Canvas_Color_Separator"
+        separate_rgb.location = location
+        
+        # Create color range detectors for each biome
+        biome_detectors = {}
+        y_offset = 0
+        
+        for biome_name, color in self.biome_colors.items():
+            detector = self._create_single_biome_detector(nodes, 
+                                                        (location[0] + 200, location[1] + y_offset), 
+                                                        biome_name, color)
+            biome_detectors[biome_name] = detector
+            y_offset -= 150
+        
+        return {
+            'input': separate_rgb.inputs['Image'],
+            'biome_detectors': biome_detectors,
+            'rgb_separator': separate_rgb
+        }
+    
+    def _create_single_biome_detector(self, nodes, location, biome_name, target_color):
+        """Create detection logic for a single biome color."""
+        # Color range comparison nodes
+        r_compare = nodes.new('ShaderNodeMath')
+        r_compare.name = f"{biome_name}_R_Compare"
+        r_compare.location = location
+        r_compare.operation = 'LESS_THAN'
+        r_compare.inputs[1].default_value = target_color[0] + 0.1  # Tolerance
+        
+        g_compare = nodes.new('ShaderNodeMath')
+        g_compare.name = f"{biome_name}_G_Compare"
+        g_compare.location = (location[0], location[1] - 50)
+        g_compare.operation = 'LESS_THAN'
+        g_compare.inputs[1].default_value = target_color[1] + 0.1
+        
+        b_compare = nodes.new('ShaderNodeMath')
+        b_compare.name = f"{biome_name}_B_Compare"
+        b_compare.location = (location[0], location[1] - 100)
+        b_compare.operation = 'LESS_THAN'
+        b_compare.inputs[1].default_value = target_color[2] + 0.1
+        
+        # Combine RGB matches
+        rgb_and = nodes.new('ShaderNodeMath')
+        rgb_and.name = f"{biome_name}_RGB_Combiner"
+        rgb_and.location = (location[0] + 150, location[1] - 25)
+        rgb_and.operation = 'MULTIPLY'
+        
+        return {
+            'r_compare': r_compare,
+            'g_compare': g_compare,
+            'b_compare': b_compare,
+            'combiner': rgb_and,
+            'output': rgb_and.outputs['Value']
+        }
+    
+    def _create_biome_terrain_generators(self, nodes, location):
+        """
+        Create terrain generation nodes for each biome.
+        MAINTAINABLE: Each biome gets its own clearly-named terrain generator.
+        """
+        generators = {}
+        y_offset = 0
+        
+        for biome_name, params in self.biome_terrain_parameters.items():
+            generator = self._create_single_terrain_generator(nodes, 
+                                                            (location[0], location[1] + y_offset), 
+                                                            biome_name, params)
+            generators[biome_name] = generator
+            y_offset -= 200
+        
+        return generators
+    
+    def _create_single_terrain_generator(self, nodes, location, biome_name, terrain_params):
+        """Create terrain generation logic for a single biome."""
+        # Get position for noise input
+        position_input = nodes.new('GeometryNodeInputPosition')
+        position_input.name = f"{biome_name}_Position"
+        position_input.location = (location[0] - 200, location[1])
+        
+        # Primary noise layer
+        primary_noise = nodes.new('ShaderNodeTexNoise')
+        primary_noise.name = f"{biome_name}_Primary_Noise"
+        primary_noise.location = location
+        primary_noise.inputs['Scale'].default_value = terrain_params['noise_scale_primary']
+        primary_noise.inputs['Detail'].default_value = terrain_params['detail_level']
+        primary_noise.inputs['Roughness'].default_value = terrain_params['roughness']
+        
+        # Secondary noise layer for detail
+        secondary_noise = nodes.new('ShaderNodeTexNoise')
+        secondary_noise.name = f"{biome_name}_Secondary_Noise"
+        secondary_noise.location = (location[0], location[1] - 50)
+        secondary_noise.inputs['Scale'].default_value = terrain_params['noise_scale_secondary']
+        secondary_noise.inputs['Detail'].default_value = terrain_params['detail_level'] / 2
+        secondary_noise.inputs['Roughness'].default_value = terrain_params['roughness'] * 0.7
         
         # Combine noise layers
-        mix = nodes.new('ShaderNodeMix')
-        mix.location = (-100, 200)
-        mix.data_type = 'RGBA'
-        mix.blend_type = 'ADD'
-        mix.inputs['Fac'].default_value = 0.3
+        noise_combiner = nodes.new('ShaderNodeMix')
+        noise_combiner.name = f"{biome_name}_Noise_Combiner"
+        noise_combiner.location = (location[0] + 150, location[1] - 25)
+        noise_combiner.data_type = 'RGBA'
+        noise_combiner.blend_type = 'ADD'
+        noise_combiner.inputs['Fac'].default_value = 0.3
         
-        # Separate XYZ to get height gradient
-        separate = nodes.new('ShaderNodeSeparateXYZ')
-        separate.location = (-200, 0)
+        # Apply biome-specific displacement strength
+        strength_multiplier = nodes.new('ShaderNodeMath')
+        strength_multiplier.name = f"{biome_name}_Strength"
+        strength_multiplier.location = (location[0] + 300, location[1])
+        strength_multiplier.operation = 'MULTIPLY'
+        strength_multiplier.inputs[1].default_value = terrain_params['displacement_strength']
         
-        # Math node for elevation gradient (X-axis based)
-        gradient = nodes.new('ShaderNodeMath')
-        gradient.location = (-100, 0)
-        gradient.operation = 'MULTIPLY'
-        gradient.inputs[1].default_value = 0.5  # Gradient strength
+        return {
+            'position': position_input,
+            'primary_noise': primary_noise,
+            'secondary_noise': secondary_noise,
+            'combiner': noise_combiner,
+            'strength': strength_multiplier,
+            'output': strength_multiplier.outputs['Value']
+        }
+    
+    def _create_terrain_mixer(self, nodes, location, terrain_generators, biome_detector):
+        """
+        Create the mixing logic that combines biome-specific terrain based on detection.
+        SMART MIXING: Only active biome contributes to final terrain.
+        """
+        # Create mix nodes for each biome
+        mix_nodes = []
+        y_offset = 0
         
-        # Combine gradient with noise
-        combine_height = nodes.new('ShaderNodeMath')
-        combine_height.location = (0, 100)
-        combine_height.operation = 'ADD'
+        # Start with zero base
+        base_value = nodes.new('ShaderNodeValue')
+        base_value.name = "Base_Terrain_Value"
+        base_value.location = (location[0] - 100, location[1])
+        base_value.outputs[0].default_value = 0.0
         
-        # Scale by heightmap strength
-        strength_mult = nodes.new('ShaderNodeMath')
-        strength_mult.location = (100, 100)
-        strength_mult.operation = 'MULTIPLY'
+        current_input = base_value.outputs['Value']
         
-        # Set position node to displace geometry
+        for biome_name in self.biome_colors.keys():
+            mixer = nodes.new('ShaderNodeMix')
+            mixer.name = f"{biome_name}_Terrain_Mixer"
+            mixer.location = (location[0], location[1] + y_offset)
+            mixer.data_type = 'RGBA'
+            mixer.blend_type = 'ADD'
+            
+            # Connect: biome detection factor controls mixing
+            # Current terrain + (biome terrain * detection factor)
+            
+            mix_nodes.append(mixer)
+            y_offset -= 100
+        
+        # Wire up the mixing chain
+        # This creates an additive chain where each biome contributes based on its detection
+        
+        return {
+            'mixers': mix_nodes,
+            'output': mix_nodes[-1].outputs['Color'] if mix_nodes else base_value.outputs['Value']
+        }
+    
+    def _create_displacement_applicator(self, nodes, location):
+        """Create the final displacement application to geometry."""
+        # Combine displacement into vector
+        vector_combiner = nodes.new('ShaderNodeCombineXYZ')
+        vector_combiner.name = "Displacement_Vector"
+        vector_combiner.location = location
+        vector_combiner.inputs['X'].default_value = 0.0
+        vector_combiner.inputs['Y'].default_value = 0.0
+        # Z displacement will be connected from terrain mixer
+        
+        # Apply displacement to geometry
         set_position = nodes.new('GeometryNodeSetPosition')
-        set_position.location = (200, 0)
-        
-        # Vector math to apply Z displacement
-        vector_combine = nodes.new('ShaderNodeCombineXYZ')
-        vector_combine.location = (100, -50)
-        vector_combine.inputs['X'].default_value = 0.0
-        vector_combine.inputs['Y'].default_value = 0.0
-        
-        # Connect the network
-        links.new(position.outputs['Position'], noise.inputs['Vector'])
-        links.new(position.outputs['Position'], noise2.inputs['Vector'])
-        links.new(noise.outputs['Color'], mix.inputs['Color1'])
-        links.new(noise2.outputs['Color'], mix.inputs['Color2'])
-        
-        links.new(position.outputs['Position'], separate.inputs['Vector'])
-        links.new(separate.outputs['X'], gradient.inputs[0])
-        
-        links.new(mix.outputs['Color'], combine_height.inputs[0])
-        links.new(gradient.outputs['Value'], combine_height.inputs[1])
-        
-        links.new(combine_height.outputs['Value'], strength_mult.inputs[0])
-        links.new(input_node.outputs['Heightmap_Strength'], strength_mult.inputs[1])
-        
-        links.new(strength_mult.outputs['Value'], vector_combine.inputs['Z'])
-        
-        links.new(input_node.outputs['Geometry'], set_position.inputs['Geometry'])
-        links.new(vector_combine.outputs['Vector'], set_position.inputs['Offset'])
-        
-        links.new(set_position.outputs['Geometry'], output_node.inputs['Geometry'])
-
-    def _create_archipelago_nodes(self, node_group, input_node, output_node):
-        """Create archipelago terrain with island chains and water features"""
-        nodes = node_group.nodes
-        links = node_group.links
-        
-        # Position node
-        position = nodes.new('GeometryNodeInputPosition')
-        position.location = (-300, 200)
-        
-        # Large scale noise for island shapes
-        island_noise = nodes.new('ShaderNodeTexNoise')
-        island_noise.location = (-200, 300)
-        island_noise.inputs['Scale'].default_value = 1.5
-        island_noise.inputs['Detail'].default_value = 3.0
-        island_noise.inputs['Roughness'].default_value = 0.6
-        
-        # Medium scale for coastal variation
-        coastal_noise = nodes.new('ShaderNodeTexNoise')
-        coastal_noise.location = (-200, 150)
-        coastal_noise.inputs['Scale'].default_value = 8.0
-        coastal_noise.inputs['Detail'].default_value = 6.0
-        coastal_noise.inputs['Roughness'].default_value = 0.5
-        
-        # Fine detail for surface texture
-        detail_noise = nodes.new('ShaderNodeTexNoise')
-        detail_noise.location = (-200, 0)
-        detail_noise.inputs['Scale'].default_value = 25.0
-        detail_noise.inputs['Detail'].default_value = 2.0
-        detail_noise.inputs['Roughness'].default_value = 0.4
-        
-        # Combine island shape with coastal variation
-        mix1 = nodes.new('ShaderNodeMix')
-        mix1.location = (-100, 250)
-        mix1.data_type = 'RGBA'
-        mix1.blend_type = 'MIX'
-        mix1.inputs['Fac'].default_value = 0.4
-        
-        # Add fine detail
-        mix2 = nodes.new('ShaderNodeMix')
-        mix2.location = (-50, 150)
-        mix2.data_type = 'RGBA'
-        mix2.blend_type = 'ADD'
-        mix2.inputs['Fac'].default_value = 0.2
-        
-        # ColorRamp for island definition (creates water level)
-        color_ramp = nodes.new('ShaderNodeValToRGB')
-        color_ramp.location = (0, 100)
-        color_ramp.color_ramp.elements[0].position = 0.4  # Water level
-        color_ramp.color_ramp.elements[1].position = 0.6  # Land level
-        
-        # Scale by heightmap strength
-        strength_mult = nodes.new('ShaderNodeMath')
-        strength_mult.location = (100, 100)
-        strength_mult.operation = 'MULTIPLY'
-        
-        # Set position node
-        set_position = nodes.new('GeometryNodeSetPosition')
-        set_position.location = (200, 0)
-        
-        # Vector combine for Z displacement
-        vector_combine = nodes.new('ShaderNodeCombineXYZ')
-        vector_combine.location = (100, -50)
-        vector_combine.inputs['X'].default_value = 0.0
-        vector_combine.inputs['Y'].default_value = 0.0
-        
-        # Connect the network
-        links.new(position.outputs['Position'], island_noise.inputs['Vector'])
-        links.new(position.outputs['Position'], coastal_noise.inputs['Vector'])
-        links.new(position.outputs['Position'], detail_noise.inputs['Vector'])
-        
-        links.new(island_noise.outputs['Color'], mix1.inputs['Color1'])
-        links.new(coastal_noise.outputs['Color'], mix1.inputs['Color2'])
-        links.new(mix1.outputs['Color'], mix2.inputs['Color1'])
-        links.new(detail_noise.outputs['Color'], mix2.inputs['Color2'])
-        
-        links.new(mix2.outputs['Color'], color_ramp.inputs['Fac'])
-        links.new(color_ramp.outputs['Color'], strength_mult.inputs[0])
-        links.new(input_node.outputs['Heightmap_Strength'], strength_mult.inputs[1])
-        
-        links.new(strength_mult.outputs['Value'], vector_combine.inputs['Z'])
-        links.new(input_node.outputs['Geometry'], set_position.inputs['Geometry'])
-        links.new(vector_combine.outputs['Vector'], set_position.inputs['Offset'])
-        links.new(set_position.outputs['Geometry'], output_node.inputs['Geometry'])
-
-    def _create_canyon_nodes(self, node_group, input_node, output_node):
-        """Create canyon terrain with Big Bend-style rolling mesas and valleys"""
-        nodes = node_group.nodes
-        links = node_group.links
-        
-        # Position node
-        position = nodes.new('GeometryNodeInputPosition')
-        position.location = (-300, 200)
-        
-        # Large scale noise for mesa formations
-        mesa_noise = nodes.new('ShaderNodeTexNoise')
-        mesa_noise.location = (-200, 300)
-        mesa_noise.inputs['Scale'].default_value = 2.0
-        mesa_noise.inputs['Detail'].default_value = 4.0
-        mesa_noise.inputs['Roughness'].default_value = 0.8
-        
-        # Medium scale for canyon cutting
-        canyon_noise = nodes.new('ShaderNodeTexNoise')
-        canyon_noise.location = (-200, 150)
-        canyon_noise.inputs['Scale'].default_value = 6.0
-        canyon_noise.inputs['Detail'].default_value = 8.0
-        canyon_noise.inputs['Roughness'].default_value = 0.6
-        
-        # Fine erosion detail
-        erosion_noise = nodes.new('ShaderNodeTexNoise')
-        erosion_noise.location = (-200, 0)
-        erosion_noise.inputs['Scale'].default_value = 20.0
-        erosion_noise.inputs['Detail'].default_value = 3.0
-        erosion_noise.inputs['Roughness'].default_value = 0.4
-        
-        # ColorRamp for mesa flatness
-        mesa_ramp = nodes.new('ShaderNodeValToRGB')
-        mesa_ramp.location = (-100, 300)
-        mesa_ramp.color_ramp.elements[0].position = 0.3
-        mesa_ramp.color_ramp.elements[1].position = 0.7
-        
-        # ColorRamp for canyon depth
-        canyon_ramp = nodes.new('ShaderNodeValToRGB')
-        canyon_ramp.location = (-100, 150)
-        canyon_ramp.color_ramp.elements[0].position = 0.2
-        canyon_ramp.color_ramp.elements[1].position = 0.8
-        
-        # Subtract canyons from mesas
-        subtract = nodes.new('ShaderNodeMath')
-        subtract.location = (0, 200)
-        subtract.operation = 'SUBTRACT'
-        
-        # Add fine erosion
-        add_erosion = nodes.new('ShaderNodeMix')
-        add_erosion.location = (50, 150)
-        add_erosion.data_type = 'RGBA'
-        add_erosion.blend_type = 'ADD'
-        add_erosion.inputs['Fac'].default_value = 0.15
-        
-        # Scale by heightmap strength
-        strength_mult = nodes.new('ShaderNodeMath')
-        strength_mult.location = (100, 100)
-        strength_mult.operation = 'MULTIPLY'
-        
-        # Set position node
-        set_position = nodes.new('GeometryNodeSetPosition')
-        set_position.location = (200, 0)
-        
-        # Vector combine for Z displacement
-        vector_combine = nodes.new('ShaderNodeCombineXYZ')
-        vector_combine.location = (100, -50)
-        vector_combine.inputs['X'].default_value = 0.0
-        vector_combine.inputs['Y'].default_value = 0.0
-        
-        # Connect the network
-        links.new(position.outputs['Position'], mesa_noise.inputs['Vector'])
-        links.new(position.outputs['Position'], canyon_noise.inputs['Vector'])
-        links.new(position.outputs['Position'], erosion_noise.inputs['Vector'])
-        
-        links.new(mesa_noise.outputs['Color'], mesa_ramp.inputs['Fac'])
-        links.new(canyon_noise.outputs['Color'], canyon_ramp.inputs['Fac'])
-        
-        links.new(mesa_ramp.outputs['Color'], subtract.inputs[0])
-        links.new(canyon_ramp.outputs['Color'], subtract.inputs[1])
-        
-        links.new(subtract.outputs['Value'], add_erosion.inputs['Color1'])
-        links.new(erosion_noise.outputs['Color'], add_erosion.inputs['Color2'])
-        
-        links.new(add_erosion.outputs['Color'], strength_mult.inputs[0])
-        links.new(input_node.outputs['Heightmap_Strength'], strength_mult.inputs[1])
-        
-        links.new(strength_mult.outputs['Value'], vector_combine.inputs['Z'])
-        links.new(input_node.outputs['Geometry'], set_position.inputs['Geometry'])
-        links.new(vector_combine.outputs['Vector'], set_position.inputs['Offset'])
-        links.new(set_position.outputs['Geometry'], output_node.inputs['Geometry'])
-
-    def _create_rolling_hills_nodes(self, node_group, input_node, output_node):
-        """Create gentle rolling hills terrain for comfortable exploration"""
-        nodes = node_group.nodes
-        links = node_group.links
-        
-        # Position node
-        position = nodes.new('GeometryNodeInputPosition')
-        position.location = (-300, 200)
-        
-        # Large scale gentle undulation
-        hills_noise = nodes.new('ShaderNodeTexNoise')
-        hills_noise.location = (-200, 300)
-        hills_noise.inputs['Scale'].default_value = 1.0
-        hills_noise.inputs['Detail'].default_value = 2.0
-        hills_noise.inputs['Roughness'].default_value = 0.3
-        
-        # Medium scale for hill variation
-        variation_noise = nodes.new('ShaderNodeTexNoise')
-        variation_noise.location = (-200, 150)
-        variation_noise.inputs['Scale'].default_value = 4.0
-        variation_noise.inputs['Detail'].default_value = 4.0
-        variation_noise.inputs['Roughness'].default_value = 0.4
-        
-        # Fine grass-like texture
-        grass_noise = nodes.new('ShaderNodeTexNoise')
-        grass_noise.location = (-200, 0)
-        grass_noise.inputs['Scale'].default_value = 30.0
-        grass_noise.inputs['Detail'].default_value = 1.0
-        grass_noise.inputs['Roughness'].default_value = 0.2
-        
-        # Smooth the hills with ColorRamp
-        smooth_ramp = nodes.new('ShaderNodeValToRGB')
-        smooth_ramp.location = (-100, 300)
-        smooth_ramp.color_ramp.interpolation = 'EASE'
-        smooth_ramp.color_ramp.elements[0].position = 0.2
-        smooth_ramp.color_ramp.elements[1].position = 0.8
-        
-        # Add variation gently
-        add_variation = nodes.new('ShaderNodeMix')
-        add_variation.location = (-50, 200)
-        add_variation.data_type = 'RGBA'
-        add_variation.blend_type = 'ADD'
-        add_variation.inputs['Fac'].default_value = 0.3
-        
-        # Add fine grass texture
-        add_grass = nodes.new('ShaderNodeMix')
-        add_grass.location = (0, 150)
-        add_grass.data_type = 'RGBA'
-        add_grass.blend_type = 'ADD'
-        add_grass.inputs['Fac'].default_value = 0.05
-        
-        # Scale by heightmap strength
-        strength_mult = nodes.new('ShaderNodeMath')
-        strength_mult.location = (100, 100)
-        strength_mult.operation = 'MULTIPLY'
-        
-        # Set position node
-        set_position = nodes.new('GeometryNodeSetPosition')
-        set_position.location = (200, 0)
-        
-        # Vector combine for Z displacement
-        vector_combine = nodes.new('ShaderNodeCombineXYZ')
-        vector_combine.location = (100, -50)
-        vector_combine.inputs['X'].default_value = 0.0
-        vector_combine.inputs['Y'].default_value = 0.0
-        
-        # Connect the network
-        links.new(position.outputs['Position'], hills_noise.inputs['Vector'])
-        links.new(position.outputs['Position'], variation_noise.inputs['Vector'])
-        links.new(position.outputs['Position'], grass_noise.inputs['Vector'])
-        
-        links.new(hills_noise.outputs['Color'], smooth_ramp.inputs['Fac'])
-        links.new(smooth_ramp.outputs['Color'], add_variation.inputs['Color1'])
-        links.new(variation_noise.outputs['Color'], add_variation.inputs['Color2'])
-        
-        links.new(add_variation.outputs['Color'], add_grass.inputs['Color1'])
-        links.new(grass_noise.outputs['Color'], add_grass.inputs['Color2'])
-        
-        links.new(add_grass.outputs['Color'], strength_mult.inputs[0])
-        links.new(input_node.outputs['Heightmap_Strength'], strength_mult.inputs[1])
-        
-        links.new(strength_mult.outputs['Value'], vector_combine.inputs['Z'])
-        links.new(input_node.outputs['Geometry'], set_position.inputs['Geometry'])
-        links.new(vector_combine.outputs['Vector'], set_position.inputs['Offset'])
-        links.new(set_position.outputs['Geometry'], output_node.inputs['Geometry'])
-
-    def _create_desert_nodes(self, node_group, input_node, output_node):
-        """Create desert terrain with dune formations and rocky outcrops"""
-        nodes = node_group.nodes
-        links = node_group.links
-        
-        # Position node
-        position = nodes.new('GeometryNodeInputPosition')
-        position.location = (-300, 200)
-        
-        # Large scale dune formations
-        dune_noise = nodes.new('ShaderNodeTexNoise')
-        dune_noise.location = (-200, 300)
-        dune_noise.inputs['Scale'].default_value = 1.2
-        dune_noise.inputs['Detail'].default_value = 3.0
-        dune_noise.inputs['Roughness'].default_value = 0.5
-        
-        # Medium scale for wind patterns
-        wind_noise = nodes.new('ShaderNodeTexNoise')
-        wind_noise.location = (-200, 150)
-        wind_noise.inputs['Scale'].default_value = 5.0
-        wind_noise.inputs['Detail'].default_value = 6.0
-        wind_noise.inputs['Roughness'].default_value = 0.6
-        
-        # Rocky outcrops
-        rock_noise = nodes.new('ShaderNodeTexNoise')
-        rock_noise.location = (-200, 0)
-        rock_noise.inputs['Scale'].default_value = 8.0
-        rock_noise.inputs['Detail'].default_value = 8.0
-        rock_noise.inputs['Roughness'].default_value = 0.9
-        
-        # Fine sand texture
-        sand_noise = nodes.new('ShaderNodeTexNoise')
-        sand_noise.location = (-200, -150)
-        sand_noise.inputs['Scale'].default_value = 40.0
-        sand_noise.inputs['Detail'].default_value = 1.0
-        sand_noise.inputs['Roughness'].default_value = 0.3
-        
-        # Smooth dunes with ColorRamp
-        dune_ramp = nodes.new('ShaderNodeValToRGB')
-        dune_ramp.location = (-100, 300)
-        dune_ramp.color_ramp.interpolation = 'EASE'
-        
-        # Sharp rocks with ColorRamp
-        rock_ramp = nodes.new('ShaderNodeValToRGB')
-        rock_ramp.location = (-100, 0)
-        rock_ramp.color_ramp.elements[0].position = 0.6
-        rock_ramp.color_ramp.elements[1].position = 0.8
-        
-        # Combine dunes and wind
-        combine_dunes = nodes.new('ShaderNodeMix')
-        combine_dunes.location = (-50, 250)
-        combine_dunes.data_type = 'RGBA'
-        combine_dunes.blend_type = 'ADD'
-        combine_dunes.inputs['Fac'].default_value = 0.4
-        
-        # Add rocky outcrops
-        add_rocks = nodes.new('ShaderNodeMix')
-        add_rocks.location = (0, 150)
-        add_rocks.data_type = 'RGBA'
-        add_rocks.blend_type = 'LIGHTEN'
-        add_rocks.inputs['Fac'].default_value = 0.7
-        
-        # Add fine sand texture
-        add_sand = nodes.new('ShaderNodeMix')
-        add_sand.location = (50, 100)
-        add_sand.data_type = 'RGBA'
-        add_sand.blend_type = 'ADD'
-        add_sand.inputs['Fac'].default_value = 0.1
-        
-        # Scale by heightmap strength
-        strength_mult = nodes.new('ShaderNodeMath')
-        strength_mult.location = (100, 100)
-        strength_mult.operation = 'MULTIPLY'
-        
-        # Set position node
-        set_position = nodes.new('GeometryNodeSetPosition')
-        set_position.location = (200, 0)
-        
-        # Vector combine for Z displacement
-        vector_combine = nodes.new('ShaderNodeCombineXYZ')
-        vector_combine.location = (100, -50)
-        vector_combine.inputs['X'].default_value = 0.0
-        vector_combine.inputs['Y'].default_value = 0.0
-        
-        # Connect the network
-        links.new(position.outputs['Position'], dune_noise.inputs['Vector'])
-        links.new(position.outputs['Position'], wind_noise.inputs['Vector'])
-        links.new(position.outputs['Position'], rock_noise.inputs['Vector'])
-        links.new(position.outputs['Position'], sand_noise.inputs['Vector'])
-        
-        links.new(dune_noise.outputs['Color'], dune_ramp.inputs['Fac'])
-        links.new(rock_noise.outputs['Color'], rock_ramp.inputs['Fac'])
-        
-        links.new(dune_ramp.outputs['Color'], combine_dunes.inputs['Color1'])
-        links.new(wind_noise.outputs['Color'], combine_dunes.inputs['Color2'])
-        
-        links.new(combine_dunes.outputs['Color'], add_rocks.inputs['Color1'])
-        links.new(rock_ramp.outputs['Color'], add_rocks.inputs['Color2'])
-        
-        links.new(add_rocks.outputs['Color'], add_sand.inputs['Color1'])
-        links.new(sand_noise.outputs['Color'], add_sand.inputs['Color2'])
-        
-        links.new(add_sand.outputs['Color'], strength_mult.inputs[0])
-        links.new(input_node.outputs['Heightmap_Strength'], strength_mult.inputs[1])
-        
-        links.new(strength_mult.outputs['Value'], vector_combine.inputs['Z'])
-        links.new(input_node.outputs['Geometry'], set_position.inputs['Geometry'])
-        links.new(vector_combine.outputs['Vector'], set_position.inputs['Offset'])
-        links.new(set_position.outputs['Geometry'], output_node.inputs['Geometry'])
-
-    def _create_ocean_nodes(self, node_group, input_node, output_node):
-        """Create ocean terrain with underwater ridges and depth variation"""
-        nodes = node_group.nodes
-        links = node_group.links
-        
-        # Position node
-        position = nodes.new('GeometryNodeInputPosition')
-        position.location = (-300, 200)
-        
-        # Large scale depth variation
-        depth_noise = nodes.new('ShaderNodeTexNoise')
-        depth_noise.location = (-200, 300)
-        depth_noise.inputs['Scale'].default_value = 0.8
-        depth_noise.inputs['Detail'].default_value = 2.0
-        depth_noise.inputs['Roughness'].default_value = 0.4
-        
-        # Medium scale for ridges and trenches
-        ridge_noise = nodes.new('ShaderNodeTexNoise')
-        ridge_noise.location = (-200, 150)
-        ridge_noise.inputs['Scale'].default_value = 3.0
-        ridge_noise.inputs['Detail'].default_value = 6.0
-        ridge_noise.inputs['Roughness'].default_value = 0.7
-        
-        # Fine underwater texture
-        underwater_noise = nodes.new('ShaderNodeTexNoise')
-        underwater_noise.location = (-200, 0)
-        underwater_noise.inputs['Scale'].default_value = 15.0
-        underwater_noise.inputs['Detail'].default_value = 4.0
-        underwater_noise.inputs['Roughness'].default_value = 0.5
-        
-        # Invert depth (ocean goes down)
-        invert_depth = nodes.new('ShaderNodeMath')
-        invert_depth.location = (-100, 300)
-        invert_depth.operation = 'SUBTRACT'
-        invert_depth.inputs[0].default_value = 0.0
-        
-        # ColorRamp for ridge definition
-        ridge_ramp = nodes.new('ShaderNodeValToRGB')
-        ridge_ramp.location = (-100, 150)
-        ridge_ramp.color_ramp.elements[0].position = 0.4
-        ridge_ramp.color_ramp.elements[1].position = 0.6
-        
-        # Combine depth with ridges
-        combine_depth = nodes.new('ShaderNodeMix')
-        combine_depth.location = (-50, 200)
-        combine_depth.data_type = 'RGBA'
-        combine_depth.blend_type = 'ADD'
-        combine_depth.inputs['Fac'].default_value = 0.5
-        
-        # Add underwater detail
-        add_detail = nodes.new('ShaderNodeMix')
-        add_detail.location = (0, 150)
-        add_detail.data_type = 'RGBA'
-        add_detail.blend_type = 'ADD'
-        add_detail.inputs['Fac'].default_value = 0.2
-        
-        # Scale by heightmap strength
-        strength_mult = nodes.new('ShaderNodeMath')
-        strength_mult.location = (100, 100)
-        strength_mult.operation = 'MULTIPLY'
-        
-        # Set position node
-        set_position = nodes.new('GeometryNodeSetPosition')
-        set_position.location = (200, 0)
-        
-        # Vector combine for Z displacement
-        vector_combine = nodes.new('ShaderNodeCombineXYZ')
-        vector_combine.location = (100, -50)
-        vector_combine.inputs['X'].default_value = 0.0
-        vector_combine.inputs['Y'].default_value = 0.0
-        
-        # Connect the network
-        links.new(position.outputs['Position'], depth_noise.inputs['Vector'])
-        links.new(position.outputs['Position'], ridge_noise.inputs['Vector'])
-        links.new(position.outputs['Position'], underwater_noise.inputs['Vector'])
-        
-        links.new(depth_noise.outputs['Color'], invert_depth.inputs[1])
-        links.new(ridge_noise.outputs['Color'], ridge_ramp.inputs['Fac'])
-        
-        links.new(invert_depth.outputs['Value'], combine_depth.inputs['Color1'])
-        links.new(ridge_ramp.outputs['Color'], combine_depth.inputs['Color2'])
-        
-        links.new(combine_depth.outputs['Color'], add_detail.inputs['Color1'])
-        links.new(underwater_noise.outputs['Color'], add_detail.inputs['Color2'])
-        
-        links.new(add_detail.outputs['Color'], strength_mult.inputs[0])
-        links.new(input_node.outputs['Heightmap_Strength'], strength_mult.inputs[1])
-        
-        links.new(strength_mult.outputs['Value'], vector_combine.inputs['Z'])
-        links.new(input_node.outputs['Geometry'], set_position.inputs['Geometry'])
-        links.new(vector_combine.outputs['Vector'], set_position.inputs['Offset'])
-        links.new(set_position.outputs['Geometry'], output_node.inputs['Geometry'])
-
-    def create_all_biomes(self):
-        """Create all 6 biome node groups at once"""
-        print("Creating all biome node groups...")
-        
-        for biome_name in self.biome_types:
+        set_position.name = "Apply_Terrain_Displacement"
+        set_position.location = (location[0] + 150, location[1])
+        
+        return {
+            'vector_combiner': vector_combiner,
+            'set_position': set_position,
+            'inputs': {
+                'Geometry': set_position.inputs['Geometry'],
+                'Displacement': vector_combiner.inputs['Z']
+            },
+            'outputs': {
+                'Geometry': set_position.outputs['Geometry']
+            }
+        }
+    
+    def apply_unified_system_to_objects(self, objects):
+        """
+        Apply the unified terrain system to flat objects.
+        INTEGRATION: Connects with main script's UnifiedCanvasTerrainSystem.
+        """
+        if not self.unified_node_group:
+            self.create_unified_canvas_terrain_system()
+        
+        if not self.unified_node_group:
+            print("❌ Failed to create unified terrain system")
+            return False
+        
+        # Get canvas for connection
+        canvas_name = 'oneill_terrain_canvas'
+        if canvas_name not in bpy.data.images:
+            print(f"❌ Canvas {canvas_name} not found")
+            return False
+        
+        canvas = bpy.data.images[canvas_name]
+        applied_count = 0
+        
+        for obj in objects:
+            # Remove existing Enhanced_Terrain modifiers
+            existing_mods = [mod for mod in obj.modifiers if "Enhanced_Terrain" in mod.name]
+            for mod in existing_mods:
+                obj.modifiers.remove(mod)
+            
+            # Add new Enhanced_Terrain geometry nodes modifier
+            modifier = obj.modifiers.new(name="Enhanced_Terrain", type='NODES')
+            modifier.node_group = self.unified_node_group
+            
+            # Connect canvas and set default strength
             try:
-                self.create_biome_node_group(biome_name)
-                print(f"✅ {biome_name.title()} biome created successfully")
+                modifier["Input_2"] = canvas  # Canvas_Image
+                modifier["Input_3"] = 1.0     # Terrain_Strength_Multiplier
+                print(f"✅ Applied enhanced terrain system to {obj.name}")
+                applied_count += 1
             except Exception as e:
-                print(f"❌ Error creating {biome_name} biome: {e}")
+                print(f"⚠️ Failed to connect enhanced terrain to {obj.name}: {e}")
+                applied_count += 1
         
-        print(f"\nCompleted! Created {len(self.generated_node_groups)} biome node groups.")
-        return self.generated_node_groups
+        print(f"✅ Applied enhanced terrain system to {applied_count}/{len(objects)} objects")
+        return applied_count > 0
 
-    def apply_biome_to_object(self, obj, biome_name, strength=1.0, scale=1.0, intensity=1.0):
-        """Apply a biome to a specific object"""
-        if biome_name not in self.biome_types:
-            raise ValueError(f"Biome '{biome_name}' not supported")
-        
-        # Get or create the biome node group
-        if biome_name not in self.generated_node_groups:
-            self.create_biome_node_group(biome_name)
-        
-        node_group = self.generated_node_groups[biome_name]
-        
-        # Add geometry node modifier
-        modifier_name = f"Biome_{biome_name.title()}"
-        modifier = obj.modifiers.new(modifier_name, 'NODES')
-        modifier.node_group = node_group
-        
-        # Set parameters
-        modifier["Input_2"] = strength  # Heightmap_Strength
-        modifier["Input_3"] = scale     # Feature_Scale
-        modifier["Input_4"] = intensity # Biome_Intensity
-        
-        print(f"Applied {biome_name} biome to {obj.name}")
-        return modifier
+# ========================= INTEGRATION WITH MAIN SCRIPT =========================
 
-# Usage Example:
-# generator = BiomeGeometryGenerator()
-# generator.create_all_biomes()
-# 
-# # Apply to specific object
-# obj = bpy.context.active_object
-# generator.apply_biome_to_object(obj, 'mountain', strength=2.0)
+class EnhancedUnifiedCanvasTerrainSystem:
+    """
+    Enhanced version of the main script's UnifiedCanvasTerrainSystem.
+    USES: BiomeGeometryGenerator for sophisticated terrain generation.
+    """
+    
+    def __init__(self):
+        self.biome_generator = BiomeGeometryGenerator()
+    
+    def create_enhanced_unified_system(self):
+        """Create enhanced unified system with biome-specific terrain."""
+        return self.biome_generator.create_unified_canvas_terrain_system()
+    
+    def apply_enhanced_system_to_objects(self, objects):
+        """Apply enhanced system with biome terrain generation."""
+        return self.biome_generator.apply_unified_system_to_objects(objects)
 
-# ========================= REGISTRATION FUNCTIONS =========================
+# ========================= REGISTRATION FOR BLENDER INTEGRATION =========================
 
-# Add these classes for UI integration
-from bpy.types import Operator, Panel
+from bpy.types import Operator
 
-class ONEILL_OT_CreateAllBiomes(Operator):
-    """Create all biome node groups"""
-    bl_idname = "oneill.create_all_biomes"
-    bl_label = "Create All Biomes"
-    bl_description = "Create geometry node groups for all biome types"
+class ONEILL_OT_CreateEnhancedTerrainSystem(Operator):
+    """Create enhanced terrain system with biome-specific generation"""
+    bl_idname = "oneill.create_enhanced_terrain_system"
+    bl_label = "🌍 Create Enhanced Terrain System"
+    bl_description = "Create unified canvas terrain system with biome-specific generation"
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
         generator = BiomeGeometryGenerator()
-        created_biomes = generator.create_all_biomes()
+        node_group = generator.create_unified_canvas_terrain_system()
         
-        self.report({'INFO'}, f"Created {len(created_biomes)} biome node groups")
+        if node_group:
+            self.report({'INFO'}, f"Created enhanced terrain system: {node_group.name}")
+        else:
+            self.report({'ERROR'}, "Failed to create enhanced terrain system")
+            return {'CANCELLED'}
+        
         return {'FINISHED'}
 
-class ONEILL_OT_ApplyBiomeToSelected(Operator):
-    """Apply biome to selected objects"""
-    bl_idname = "oneill.apply_biome_to_selected"
-    bl_label = "Apply Biome"
-    bl_description = "Apply selected biome to selected objects"
+class ONEILL_OT_ApplyEnhancedTerrainToSelected(Operator):
+    """Apply enhanced terrain system to selected flat objects"""
+    bl_idname = "oneill.apply_enhanced_terrain_to_selected"
+    bl_label = "🎨 Apply Enhanced Terrain"
+    bl_description = "Apply enhanced terrain system to selected flat objects"
     bl_options = {'REGISTER', 'UNDO'}
     
-    biome_type: bpy.props.StringProperty()
-    strength: bpy.props.FloatProperty(default=1.0)
-    
     def execute(self, context):
-        if not context.selected_objects:
-            self.report({'ERROR'}, "No objects selected")
+        flat_objects = [obj for obj in context.selected_objects if obj.get("oneill_flat")]
+        
+        if not flat_objects:
+            # Try all flat objects if none selected
+            flat_objects = [obj for obj in bpy.data.objects if obj.get("oneill_flat")]
+        
+        if not flat_objects:
+            self.report({'ERROR'}, "No flat objects found")
             return {'CANCELLED'}
         
         generator = BiomeGeometryGenerator()
+        success = generator.apply_unified_system_to_objects(flat_objects)
         
-        for obj in context.selected_objects:
-            if obj.type == 'MESH':
-                try:
-                    generator.apply_biome_to_object(obj, self.biome_type, self.strength)
-                except Exception as e:
-                    self.report({'WARNING'}, f"Failed to apply biome to {obj.name}: {e}")
+        if success:
+            self.report({'INFO'}, f"Applied enhanced terrain to {len(flat_objects)} objects")
+        else:
+            self.report({'ERROR'}, "Failed to apply enhanced terrain system")
+            return {'CANCELLED'}
         
-        self.report({'INFO'}, f"Applied {self.biome_type} biome to {len(context.selected_objects)} objects")
         return {'FINISHED'}
 
 # Registration classes list
-classes = [
-    ONEILL_OT_CreateAllBiomes,
-    ONEILL_OT_ApplyBiomeToSelected,
+enhanced_classes = [
+    ONEILL_OT_CreateEnhancedTerrainSystem,
+    ONEILL_OT_ApplyEnhancedTerrainToSelected,
 ]
 
-def register():
-    """Register biome geometry generator module"""
+def register_enhanced_terrain():
+    """Register enhanced terrain system components"""
     try:
-        for cls in classes:
+        for cls in enhanced_classes:
             bpy.utils.register_class(cls)
-        print("✅ Biome geometry generator registered")
+        print("✅ Enhanced terrain system registered")
     except Exception as e:
-        print(f"❌ Biome geometry generator registration failed: {e}")
+        print(f"❌ Enhanced terrain system registration failed: {e}")
         raise
 
-def unregister():
-    """Unregister biome geometry generator module"""
+def unregister_enhanced_terrain():
+    """Unregister enhanced terrain system components"""
     try:
-        for cls in reversed(classes):
+        for cls in reversed(enhanced_classes):
             bpy.utils.unregister_class(cls)
-        print("✅ Biome geometry generator unregistered")
+        print("✅ Enhanced terrain system unregistered")
     except Exception as e:
-        print(f"⚠️ Biome geometry generator unregistration failed: {e}")
+        print(f"⚠️ Enhanced terrain system unregistration failed: {e}")
+
+# ========================= USAGE EXAMPLE =========================
+
+# Usage for main script integration:
+# from modules.biome_geometry_generator import EnhancedUnifiedCanvasTerrainSystem
+# 
+# enhanced_system = EnhancedUnifiedCanvasTerrainSystem()
+# enhanced_system.apply_enhanced_system_to_objects(flat_objects)
 
 if __name__ == "__main__":
-    register()
+    register_enhanced_terrain()

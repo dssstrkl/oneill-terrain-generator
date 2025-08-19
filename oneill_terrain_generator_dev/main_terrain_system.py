@@ -13,114 +13,294 @@ import random
 from bpy.types import Operator, Panel, PropertyGroup
 from bpy.props import FloatProperty, IntProperty, BoolProperty, EnumProperty, PointerProperty
 
-# ========================= SESSION 40 UNIFIED SYSTEM INTEGRATION =========================
+# ========================= SESSION 55 AUTO-PREVIEW SYSTEM INTEGRATION =========================
 
-class GlobalPreviewDisplacementSystem:
-    """Enhanced displacement system with Session 40 unified terrain integration"""
+class WorkingAutoPreviewSystem:
+    """SESSION 42 working auto-preview system integration - PHASE 2"""
     
     def __init__(self):
-        self.biome_preview_settings = {
-            'MOUNTAINS': {'displacement_strength': 2.0, 'noise_scale': 3.0},
-            'OCEAN': {'displacement_strength': -1.5, 'noise_scale': 0.8},
-            'ARCHIPELAGO': {'displacement_strength': 1.0, 'noise_scale': 1.5},
-            'CANYONS': {'displacement_strength': 1.5, 'noise_scale': 2.0},
-            'HILLS': {'displacement_strength': 0.8, 'noise_scale': 1.0},
-            'DESERT': {'displacement_strength': 1.2, 'noise_scale': 1.2},
-        }
+        self.auto_preview_active = False
+        self.monitored_objects = []
+    
+    def load_working_components(self):
+        """Load the proven working node group and canvas from SESSION 42"""
+        working_asset_path = '/Users/dssstrkl/Documents/Projects/oneill terrain generator/oneill_terrain_generator_dev/assets/working_auto_preview_system.blend'
+        
+        try:
+            # Append the working node group from the asset file
+            with bpy.data.libraries.load(working_asset_path, link=False) as (data_from, data_to):
+                # Load the working node group
+                if "Unified_Multi_Biome_Terrain.001" in data_from.node_groups:
+                    data_to.node_groups = ["Unified_Multi_Biome_Terrain.001"]
+                    print("✅ Loaded working node group from SESSION 42")
+                else:
+                    print("❌ Working node group not found in asset file")
+                    return False
+                
+                # Load the canvas if it exists
+                if "oneill_terrain_canvas" in data_from.images:
+                    data_to.images = ["oneill_terrain_canvas"]
+                    print("✅ Loaded working canvas from SESSION 42")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Failed to load working components: {e}")
+            return False
+    
+    def fix_unified_canvas_uv_mapping(self, flat_objects):
+        """Fix UV mapping using exact SESSION 42 blueprint"""
+        print(f"\n=== FIXING UV MAPPING USING SESSION 42 BLUEPRINT ===")
+        
+        # Sort objects by X position to match SESSION 42 layout
+        sorted_objects = sorted(flat_objects, key=lambda obj: obj.location.x)
+        total_objects = len(sorted_objects)
+        
+        print(f"Fixing UV mapping for {total_objects} objects...")
+        
+        for i, obj in enumerate(sorted_objects):
+            try:
+                mesh = obj.data
+                if not mesh.uv_layers:
+                    print(f"⚠️ No UV layer found on {obj.name}")
+                    continue
+                
+                uv_layer = mesh.uv_layers['UVMap']
+                
+                # Calculate SESSION 42 UV ranges
+                # Each object gets exactly 1/total_objects of the canvas width
+                u_start = i / total_objects
+                u_end = (i + 1) / total_objects
+                v_start = 0.0
+                v_end = 1.0
+                
+                print(f"  Object {i+1} ({obj.name}): U=[{u_start:.6f}, {u_end:.6f}]")
+                
+                # Remap all UV coordinates to the correct canvas portion
+                for poly in mesh.polygons:
+                    for loop_index in poly.loop_indices:
+                        loop = mesh.loops[loop_index]
+                        vertex = mesh.vertices[loop.vertex_index]
+                        
+                        # Get current UV (0-1 range within object)
+                        current_uv = uv_layer.data[loop_index].uv
+                        local_u = current_uv[0]  # Already 0-1 from temporary mapping
+                        local_v = current_uv[1]  # Already 0-1 from temporary mapping
+                        
+                        # Map to correct portion of unified canvas
+                        global_u = u_start + (local_u * (u_end - u_start))
+                        global_v = v_start + (local_v * (v_end - v_start))
+                        
+                        uv_layer.data[loop_index].uv = (global_u, global_v)
+                
+                # Update mesh
+                mesh.update()
+                print(f"✅ Fixed UV mapping for {obj.name} (portion {i+1}/{total_objects})")
+                
+            except Exception as e:
+                print(f"❌ Failed to fix UV mapping for {obj.name}: {e}")
+        
+        print(f"✅ UV mapping fix complete - SESSION 42 unified canvas layout applied")
+    
+    def apply_working_modifier_stack(self, flat_objects):
+        """Apply SESSION 42 proven modifier stack to flat objects"""
+        print(f"Applying working modifier stack to {len(flat_objects)} objects...")
+        
+        # Ensure working node group is available
+        working_node_group = bpy.data.node_groups.get("Unified_Multi_Biome_Terrain.001")
+        if not working_node_group:
+            if not self.load_working_components():
+                print("❌ Cannot load working components")
+                return False
+            working_node_group = bpy.data.node_groups.get("Unified_Multi_Biome_Terrain.001")
+        
+        if not working_node_group:
+            print("❌ Working node group still not available")
+            return False
+        
+        # Get or create canvas
+        canvas = bpy.data.images.get("oneill_terrain_canvas")
+        if not canvas:
+            print("❌ Canvas not found")
+            return False
+        
+        applied_count = 0
+        for obj in flat_objects:
+            try:
+                # Remove existing modifiers
+                existing_mods = [mod for mod in obj.modifiers if mod.name in ["Preview_Subdivision", "Unified_Terrain"]]
+                for mod in existing_mods:
+                    obj.modifiers.remove(mod)
+                
+                # Apply SESSION 42 working modifier stack
+                
+                # 1. Preview_Subdivision (SUBSURF) - levels=2
+                subsurf = obj.modifiers.new(name="Preview_Subdivision", type='SUBSURF')
+                subsurf.levels = 2
+                
+                # 2. Unified_Terrain (NODES) - working node group
+                geo_nodes = obj.modifiers.new(name="Unified_Terrain", type='NODES')
+                geo_nodes.node_group = working_node_group
+                
+                # Connect canvas using SESSION 42 method
+                self.connect_canvas_to_node_group(working_node_group, canvas)
+                
+                applied_count += 1
+                print(f"✅ Applied working modifiers to {obj.name}")
+                
+            except Exception as e:
+                print(f"❌ Failed to apply modifiers to {obj.name}: {e}")
+        
+        print(f"✅ Applied working modifier stack to {applied_count}/{len(flat_objects)} objects")
+        return applied_count > 0
+    
+    def connect_canvas_to_node_group(self, node_group, canvas):
+        """Connect canvas using SESSION 42 proven method"""
+        img_tex_node = node_group.nodes.get("Unified_Canvas_Sampler")
+        if img_tex_node and 'Image' in img_tex_node.inputs:
+            img_tex_node.inputs['Image'].default_value = canvas
+            print(f"✅ Connected canvas to {img_tex_node.name}")
+            return True
+        else:
+            print("❌ Image Texture node or Image input not found")
+            return False
+    
+    def monitor_canvas_changes(self):
+        """Monitor canvas using CORRECT evaluated mesh approach from SESSION 54"""
+        if not self.auto_preview_active:
+            return False
+        
+        displacement_detected = False
+        for obj in self.monitored_objects:
+            try:
+                # CORRECT method: Use evaluated mesh, not base mesh
+                depsgraph = bpy.context.evaluated_depsgraph_get()
+                eval_obj = obj.evaluated_get(depsgraph)
+                
+                if eval_obj.data.vertices:
+                    z_coords = [v.co.z for v in eval_obj.data.vertices]
+                    displacement_range = max(z_coords) - min(z_coords)
+                    
+                    if displacement_range > 0.001:
+                        displacement_detected = True
+                        print(f"✅ Displacement detected on {obj.name}: {displacement_range:.3f}")
+                        break
+                        
+            except Exception as e:
+                print(f"⚠️ Monitoring error for {obj.name}: {e}")
+        
+        return displacement_detected
+    
+    def setup_auto_preview_monitoring(self, flat_objects):
+        """Set up real-time canvas-to-terrain monitoring"""
+        self.monitored_objects = flat_objects
+        self.auto_preview_active = True
+        print(f"✅ Auto-preview monitoring enabled for {len(flat_objects)} objects")
+        return True
+
+class UnifiedCanvasTerrainSystem:
+    """Pure unified canvas-to-terrain system - SESSION 55 INTEGRATION"""
+    
+    def __init__(self):
+        self.auto_preview_system = WorkingAutoPreviewSystem()
     
     def create_unified_multi_biome_system(self):
-        """Create the Unified_Multi_Biome_Terrain node group - SESSION 40 WORKING PATTERN"""
-        print("Creating Unified_Multi_Biome_Terrain node group...")
+        """Create the EXACT SESSION 42 working node group - 11 nodes, 10 connections"""
+        print("Creating SESSION 42 working node group...")
         
         # Check if node group already exists
         node_group_name = "Unified_Multi_Biome_Terrain.001"
         if node_group_name in bpy.data.node_groups:
-            print(f"✅ Node group {node_group_name} already exists")
+            print(f"✅ Working node group {node_group_name} already exists")
             return bpy.data.node_groups[node_group_name]
         
         # Create new geometry node group
         node_group = bpy.data.node_groups.new(node_group_name, 'GeometryNodeTree')
         
-        # Create group input and output nodes
-        input_node = node_group.nodes.new('NodeGroupInput')
-        output_node = node_group.nodes.new('NodeGroupOutput')
-        input_node.location = (-800, 0)
-        output_node.location = (800, 0)
+        # Create nodes in exact order from SESSION 42
+        group_input = node_group.nodes.new('NodeGroupInput')
+        group_input.name = "Group Input"
+        group_input.location = (-800.0, 0.0)
         
-        # Add interface sockets for Blender 4.0+
-        if hasattr(node_group, 'interface'):
-            node_group.interface.new_socket('Geometry', in_out='INPUT', socket_type='NodeSocketGeometry')
-            node_group.interface.new_socket('Image', in_out='INPUT', socket_type='NodeSocketObject')
-            node_group.interface.new_socket('Geometry', in_out='OUTPUT', socket_type='NodeSocketGeometry')
+        group_output = node_group.nodes.new('NodeGroupOutput')
+        group_output.name = "Group Output"
+        group_output.location = (600.0, 0.0)
         
-        # Create the unified canvas sampler (Image Texture node)
-        canvas_sampler = node_group.nodes.new('GeometryNodeImageTexture')
-        canvas_sampler.name = "Unified_Canvas_Sampler"
-        canvas_sampler.label = "Unified_Canvas_Sampler"
-        canvas_sampler.location = (-400, 0)
-        
-        # Create Named Attribute node for UV access
         named_attr = node_group.nodes.new('GeometryNodeInputNamedAttribute')
-        named_attr.location = (-600, 100)
+        named_attr.name = "Named Attribute"
+        named_attr.location = (-700.0, -200.0)
         named_attr.data_type = 'FLOAT_VECTOR'
         named_attr.inputs['Name'].default_value = 'UVMap'
         
-        # Create Set Position for final displacement
-        set_position = node_group.nodes.new('GeometryNodeSetPosition')
-        set_position.location = (400, 0)
+        canvas_sampler = node_group.nodes.new('GeometryNodeImageTexture')
+        canvas_sampler.name = "Unified_Canvas_Sampler"
+        canvas_sampler.location = (-500.0, -200.0)
         
-        # Connect nodes - SESSION 40 WORKING PATTERN
+        separate_xyz = node_group.nodes.new('ShaderNodeSeparateXYZ')
+        separate_xyz.name = "Separate XYZ"
+        separate_xyz.location = (-300.0, -200.0)
+        
+        color_ramp = node_group.nodes.new('ShaderNodeValToRGB')
+        color_ramp.name = "Color Ramp"
+        color_ramp.location = (-100.0, -200.0)
+        
+        noise_texture = node_group.nodes.new('ShaderNodeTexNoise')
+        noise_texture.name = "Noise Texture"
+        noise_texture.location = (-300.0, 100.0)
+        
+        position = node_group.nodes.new('GeometryNodeInputPosition')
+        position.name = "Position"
+        position.location = (-300.0, 300.0)
+        
+        math = node_group.nodes.new('ShaderNodeMath')
+        math.name = "Math"
+        math.location = (0.0, 0.0)
+        math.operation = 'MULTIPLY'
+        
+        combine_xyz = node_group.nodes.new('ShaderNodeCombineXYZ')
+        combine_xyz.name = "Combine XYZ"
+        combine_xyz.location = (200.0, 100.0)
+        
+        set_position = node_group.nodes.new('GeometryNodeSetPosition')
+        set_position.name = "Set Position"
+        set_position.location = (400.0, 0.0)
+        
+        # Create exact links from SESSION 42
         links = node_group.links
         
-        # Basic connections for working system
-        links.new(input_node.outputs['Geometry'], set_position.inputs['Geometry'])
+        # Link sequence from working system
         links.new(named_attr.outputs['Attribute'], canvas_sampler.inputs['Vector'])
-        links.new(set_position.outputs['Geometry'], output_node.inputs['Geometry'])
+        links.new(canvas_sampler.outputs['Color'], separate_xyz.inputs['Vector'])
+        links.new(separate_xyz.outputs['Z'], color_ramp.inputs['Fac'])
+        links.new(position.outputs['Position'], noise_texture.inputs['Vector'])
+        links.new(noise_texture.outputs['Fac'], math.inputs[0])  # Value
+        links.new(math.outputs['Value'], combine_xyz.inputs['Z'])
+        links.new(group_input.outputs['Geometry'], set_position.inputs['Geometry'])
+        links.new(combine_xyz.outputs['Vector'], set_position.inputs['Offset'])
+        links.new(set_position.outputs['Geometry'], group_output.inputs['Geometry'])
+        links.new(color_ramp.outputs['Color'], math.inputs[1])  # Value_001
         
-        print(f"✅ Created unified node group: {node_group_name}")
+        print(f"✅ Created SESSION 42 working node group: {node_group_name}")
+        print(f"   - {len(node_group.nodes)} nodes")
+        print(f"   - {len(node_group.links)} links")
+        
         return node_group
     
     def apply_unified_system_to_objects(self, objects):
-        """Apply unified system to flat objects - SESSION 40 WORKING PATTERN"""
-        print(f"Applying unified system to {len(objects)} objects...")
+        """Apply SESSION 55 working auto-preview system to flat objects"""
+        print(f"Applying SESSION 55 working auto-preview system to {len(objects)} objects...")
         
-        # Ensure unified node group exists
-        node_group = self.create_unified_multi_biome_system()
-        if not node_group:
-            print("❌ Failed to create/get unified node group")
-            return False
+        # Use the proven working auto-preview system from SESSION 42
+        success = self.auto_preview_system.apply_working_modifier_stack(objects)
         
-        # Get canvas for connection
-        canvas_name = 'oneill_terrain_canvas'
-        if canvas_name not in bpy.data.images:
-            print(f"❌ Canvas {canvas_name} not found")
-            return False
+        if success:
+            # Set up monitoring for auto-preview functionality
+            self.auto_preview_system.setup_auto_preview_monitoring(objects)
+            print("✅ SESSION 55 auto-preview system applied successfully")
+        else:
+            print("❌ Failed to apply SESSION 55 auto-preview system")
         
-        canvas = bpy.data.images[canvas_name]
-        applied_count = 0
-        
-        for obj in objects:
-            # Remove existing Unified_Terrain modifiers
-            existing_mods = [mod for mod in obj.modifiers if "Unified_Terrain" in mod.name]
-            for mod in existing_mods:
-                obj.modifiers.remove(mod)
-            
-            # Add new Unified_Terrain geometry nodes modifier
-            modifier = obj.modifiers.new(name="Unified_Terrain", type='NODES')
-            modifier.node_group = node_group
-            
-            # KEY SESSION 40 PATTERN: Connect canvas via Input_2
-            try:
-                modifier["Input_2"] = canvas
-                print(f"✅ Applied unified system to {obj.name} with canvas connection")
-                applied_count += 1
-            except Exception as e:
-                print(f"⚠️ Failed to connect canvas to {obj.name}: {e}")
-                # Modifier still applied, just without canvas connection
-                applied_count += 1
-        
-        print(f"✅ Applied unified system to {applied_count}/{len(objects)} objects")
-        return applied_count > 0
+        return success
 
 # ========================= CONSTANTS =========================
 
@@ -307,6 +487,26 @@ class ONEILL_OT_UnwrapToFlat(Operator):
         bm_new.to_mesh(unwrapped_mesh)
         bm_new.free()
         
+        # CRITICAL: Add UV mapping layer - TEMPORARY PLACEHOLDER
+        # UV mapping will be fixed after all objects are created
+        if not unwrapped_mesh.uv_layers:
+            uv_layer = unwrapped_mesh.uv_layers.new(name='UVMap')
+            
+            # TEMPORARY: Use basic UV mapping that will be corrected later
+            # This prevents errors during object creation
+            for poly in unwrapped_mesh.polygons:
+                for loop_index in poly.loop_indices:
+                    loop = unwrapped_mesh.loops[loop_index]
+                    vertex = unwrapped_mesh.vertices[loop.vertex_index]
+                    
+                    # Temporary UV mapping - will be corrected by fix_unified_canvas_uv_mapping
+                    local_u = (vertex.co.x + cylinder_length/2) / cylinder_length  # 0-1 within object
+                    v = (vertex.co.y + circumference/2) / circumference  # V remains 0-1
+                    
+                    uv_layer.data[loop_index].uv = (local_u, v)
+            
+            print(f"✅ Added temporary UV mapping to {unwrapped_name} (will be corrected later)")
+        
         unwrapped_obj = bpy.data.objects.new(unwrapped_name, unwrapped_mesh)
         context.collection.objects.link(unwrapped_obj)
         
@@ -368,7 +568,7 @@ class ONEILL_OT_CreateHeightmaps(Operator):
         return {'FINISHED'}
 
 class ONEILL_OT_StartTerrainPainting(Operator):
-    """Start terrain painting mode with canvas setup - SESSION 40 AUTO-PREVIEW INTEGRATION"""
+    """Start terrain painting mode with SESSION 42 auto-preview automatically enabled"""
     bl_idname = "oneill.start_terrain_painting"
     bl_label = "🎨 Start Terrain Painting"
     bl_options = {'REGISTER', 'UNDO'}
@@ -380,6 +580,9 @@ class ONEILL_OT_StartTerrainPainting(Operator):
         if not flat_objects:
             self.report({'ERROR'}, "No flat objects found. Complete steps 1-3 first.")
             return {'CANCELLED'}
+        
+        # CRITICAL: Apply Session 56 UV mapping fix BEFORE creating canvas
+        self.apply_session_56_uv_mapping_fix(flat_objects)
             
         # Create combined canvas
         canvas_name = "oneill_terrain_canvas"
@@ -398,32 +601,271 @@ class ONEILL_OT_StartTerrainPainting(Operator):
         canvas.pixels = pixels
         canvas.update()
         
-        # SESSION 40 AUTO-PREVIEW: Apply unified system immediately
-        preview_system = GlobalPreviewDisplacementSystem()
-        if preview_system.apply_unified_system_to_objects(flat_objects):
-            print("✅ Auto-activated unified terrain preview")
-            
-            # SESSION 48 AUTO-PREVIEW: Call existing working detect_paint_apply_previews
-            # This uses the proven Phase 1A paint detection system
-            if hasattr(bpy.ops.oneill, 'detect_paint_apply_previews'):
-                try:
-                    bpy.ops.oneill.detect_paint_apply_previews()
-                    print("✅ Auto-activated paint detection preview")
-                    self.report({'INFO'}, f"Painting mode started with full auto-preview active. Canvas: 2400x628")
-                except Exception as e:
-                    print(f"⚠️ Paint detection failed: {e}")
-                    self.report({'INFO'}, f"Painting mode started. Canvas: 2400x628")
-            else:
-                self.report({'INFO'}, f"Painting mode started with unified system. Canvas: 2400x628")
-        else:
-            self.report({'WARNING'}, "Painting mode started but auto-preview failed")
-            
-        props.painting_mode = True
-        
-        # Setup painting workspace - EXISTING WORKING CODE
+        # Setup painting workspace
         self.setup_painting_workspace(context, canvas)
         
+        # Set up canvas monitor to watch for painting activity
+        # Auto-preview will activate ONLY when user starts painting
+        self.setup_canvas_monitor(flat_objects, canvas)
+        
+        props.painting_mode = True
+        
+        self.report({'INFO'}, f"Painting mode active. Auto-preview will activate when you start painting.")
         return {'FINISHED'}
+    
+    def apply_session_56_uv_mapping_fix(self, flat_objects):
+        """Apply Session 56 UV mapping fix - each object gets sequential canvas portion"""
+        print("\n=== APPLYING SESSION 56 UV MAPPING FIX ===")
+        
+        # Sort objects by X position to match Session 56 approach
+        sorted_objects = sorted(flat_objects, key=lambda obj: obj.location.x)
+        total_objects = len(sorted_objects)
+        
+        print(f"Fixing UV mapping for {total_objects} objects...")
+        
+        for i, obj in enumerate(sorted_objects):
+            try:
+                mesh = obj.data
+                if not mesh.uv_layers:
+                    print(f"⚠️ No UV layer found on {obj.name}")
+                    continue
+                
+                uv_layer = mesh.uv_layers['UVMap']
+                
+                # Calculate SESSION 56 UV ranges - each object gets exactly 1/total_objects of canvas width
+                u_start = i / total_objects
+                u_end = (i + 1) / total_objects
+                u_width = u_end - u_start
+                
+                print(f"  Object {i+1} ({obj.name}): U=[{u_start:.6f}, {u_end:.6f}]")
+                
+                # Get the current UV range to normalize from
+                current_us = [uv_layer.data[loop_index].uv[0] for loop_index in range(len(uv_layer.data))]
+                current_u_min = min(current_us) if current_us else 0.0
+                current_u_max = max(current_us) if current_us else 1.0
+                current_u_range = current_u_max - current_u_min
+                
+                # Remap all UV coordinates to the correct canvas portion
+                for poly in mesh.polygons:
+                    for loop_index in poly.loop_indices:
+                        current_uv = uv_layer.data[loop_index].uv
+                        local_u = current_uv[0]  # Current U coordinate
+                        local_v = current_uv[1]  # V coordinate (keep as-is)
+                        
+                        # Normalize the local U coordinate (0-1 within object)
+                        if current_u_range > 0:
+                            normalized_u = (local_u - current_u_min) / current_u_range
+                        else:
+                            normalized_u = 0.0
+                        
+                        # Map to correct portion of unified canvas
+                        global_u = u_start + (normalized_u * u_width)
+                        global_v = local_v  # V stays the same
+                        
+                        uv_layer.data[loop_index].uv = (global_u, global_v)
+                
+                # Update mesh
+                mesh.update()
+                print(f"✅ Fixed UV mapping for {obj.name} (portion {i+1}/{total_objects})")
+                
+            except Exception as e:
+                print(f"❌ Failed to fix UV mapping for {obj.name}: {e}")
+        
+        print(f"✅ SESSION 56 UV mapping fix complete - unified canvas layout applied")
+    
+    def setup_canvas_monitor(self, flat_objects, canvas):
+        """Set up canvas monitoring to detect when user starts painting"""
+        # Store initial canvas state
+        initial_pixels = list(canvas.pixels[:])
+        auto_preview_activated = [False]  # Use list for mutable reference
+        
+        def check_canvas_for_painting():
+            try:
+                # Check if canvas has changed from initial black state
+                current_pixels = canvas.pixels[:]
+                
+                # Look for any non-black pixels (painting detected)
+                painting_detected = False
+                for i in range(0, len(current_pixels), 4):
+                    r, g, b = current_pixels[i:i+3]
+                    if r > 0.01 or g > 0.01 or b > 0.01:  # Non-black pixel found
+                        painting_detected = True
+                        break
+                
+                if painting_detected and not auto_preview_activated[0]:
+                    print("✅ Painting detected! Activating auto-preview system...")
+                    auto_preview_activated[0] = True
+                    
+                    # NOW activate the auto-preview system
+                    success = self.apply_session_42_auto_preview(flat_objects, canvas)
+                    if success:
+                        print("✅ Auto-preview system activated successfully")
+                        # Force viewport update
+                        bpy.context.view_layer.update()
+                        for area in bpy.context.screen.areas:
+                            if area.type == 'VIEW_3D':
+                                area.tag_redraw()
+                    else:
+                        print("❌ Auto-preview activation failed")
+                    
+                    return None  # Stop monitoring after activation
+                
+                # Continue monitoring if no painting detected yet
+                return 0.5  # Check again in 0.5 seconds
+                
+            except Exception as e:
+                print(f"❌ Canvas monitoring error: {e}")
+                return None  # Stop monitoring on error
+        
+        # Start the canvas monitor
+        bpy.app.timers.register(check_canvas_for_painting, first_interval=1.0)
+        print("✅ Canvas monitor started - waiting for painting activity...")
+    
+    def apply_session_42_auto_preview(self, flat_objects, canvas):
+        """Apply the exact SESSION 42 working auto-preview system automatically"""
+        print(f"Automatically applying SESSION 42 auto-preview to {len(flat_objects)} objects...")
+        
+        # Get or create the working node group
+        working_node_group = self.get_or_create_session_42_node_group()
+        if not working_node_group:
+            print("❌ Failed to get/create working node group")
+            return False
+        
+        # Connect canvas to node group
+        self.connect_canvas_to_node_group(working_node_group, canvas)
+        
+        # Apply working modifier stack to all flat objects
+        applied_count = 0
+        for obj in flat_objects:
+            try:
+                # Remove existing modifiers
+                existing_mods = [mod for mod in obj.modifiers if mod.name in ["Preview_Subdivision", "Unified_Terrain"]]
+                for mod in existing_mods:
+                    obj.modifiers.remove(mod)
+                
+                # Apply SESSION 42 working modifier stack
+                
+                # 1. Preview_Subdivision (SUBSURF) - levels=2
+                subsurf = obj.modifiers.new(name="Preview_Subdivision", type='SUBSURF')
+                subsurf.levels = 2
+                
+                # 2. Unified_Terrain (NODES) - working node group
+                geo_nodes = obj.modifiers.new(name="Unified_Terrain", type='NODES')
+                geo_nodes.node_group = working_node_group
+                
+                applied_count += 1
+                print(f"✅ Applied SESSION 42 modifiers to {obj.name}")
+                
+            except Exception as e:
+                print(f"❌ Failed to apply modifiers to {obj.name}: {e}")
+        
+        print(f"✅ SESSION 42 auto-preview applied to {applied_count}/{len(flat_objects)} objects")
+        return applied_count > 0
+    
+    def get_or_create_session_42_node_group(self):
+        """Get existing or create SESSION 42 working node group"""
+        node_group_name = "Unified_Multi_Biome_Terrain.001"
+        
+        # Check if it already exists
+        if node_group_name in bpy.data.node_groups:
+            print(f"✅ Using existing working node group: {node_group_name}")
+            return bpy.data.node_groups[node_group_name]
+        
+        # Create the exact SESSION 42 working node group
+        print(f"Creating SESSION 42 working node group: {node_group_name}")
+        
+        node_group = bpy.data.node_groups.new(node_group_name, 'GeometryNodeTree')
+        
+        # CRITICAL: Create proper interface sockets for the modifier
+        if hasattr(node_group, 'interface'):
+            # Add Geometry input and output sockets
+            node_group.interface.new_socket('Geometry', in_out='INPUT', socket_type='NodeSocketGeometry')
+            node_group.interface.new_socket('Geometry', in_out='OUTPUT', socket_type='NodeSocketGeometry')
+            print("✅ Added proper interface sockets")
+        
+        # Create nodes in exact order from SESSION 42
+        group_input = node_group.nodes.new('NodeGroupInput')
+        group_input.name = "Group Input"
+        group_input.location = (-800.0, 0.0)
+        
+        group_output = node_group.nodes.new('NodeGroupOutput')
+        group_output.name = "Group Output"
+        group_output.location = (600.0, 0.0)
+        
+        named_attr = node_group.nodes.new('GeometryNodeInputNamedAttribute')
+        named_attr.name = "Named Attribute"
+        named_attr.location = (-700.0, -200.0)
+        named_attr.data_type = 'FLOAT_VECTOR'
+        named_attr.inputs['Name'].default_value = 'UVMap'
+        
+        canvas_sampler = node_group.nodes.new('GeometryNodeImageTexture')
+        canvas_sampler.name = "Unified_Canvas_Sampler"
+        canvas_sampler.location = (-500.0, -200.0)
+        
+        separate_xyz = node_group.nodes.new('ShaderNodeSeparateXYZ')
+        separate_xyz.name = "Separate XYZ"
+        separate_xyz.location = (-300.0, -200.0)
+        
+        color_ramp = node_group.nodes.new('ShaderNodeValToRGB')
+        color_ramp.name = "Color Ramp"
+        color_ramp.location = (-100.0, -200.0)
+        
+        noise_texture = node_group.nodes.new('ShaderNodeTexNoise')
+        noise_texture.name = "Noise Texture"
+        noise_texture.location = (-300.0, 100.0)
+        
+        position = node_group.nodes.new('GeometryNodeInputPosition')
+        position.name = "Position"
+        position.location = (-300.0, 300.0)
+        
+        math = node_group.nodes.new('ShaderNodeMath')
+        math.name = "Math"
+        math.location = (0.0, 0.0)
+        math.operation = 'MULTIPLY'
+        
+        combine_xyz = node_group.nodes.new('ShaderNodeCombineXYZ')
+        combine_xyz.name = "Combine XYZ"
+        combine_xyz.location = (200.0, 100.0)
+        
+        set_position = node_group.nodes.new('GeometryNodeSetPosition')
+        set_position.name = "Set Position"
+        set_position.location = (400.0, 0.0)
+        
+        # Create exact links from SESSION 42 - INCLUDING the required Group Input/Output connections
+        links = node_group.links
+        
+        # Link sequence from working system
+        links.new(named_attr.outputs['Attribute'], canvas_sampler.inputs['Vector'])
+        links.new(canvas_sampler.outputs['Color'], separate_xyz.inputs['Vector'])
+        links.new(separate_xyz.outputs['Z'], color_ramp.inputs['Fac'])
+        links.new(position.outputs['Position'], noise_texture.inputs['Vector'])
+        links.new(noise_texture.outputs['Fac'], math.inputs[0])  # Value
+        links.new(math.outputs['Value'], combine_xyz.inputs['Z'])
+        links.new(combine_xyz.outputs['Vector'], set_position.inputs['Offset'])
+        links.new(color_ramp.outputs['Color'], math.inputs[1])  # Value_001
+        
+        # CRITICAL: Connect Group Input/Output for modifier interface
+        # After creating interface sockets, these connections should work
+        try:
+            links.new(group_input.outputs['Geometry'], set_position.inputs['Geometry'])
+            links.new(set_position.outputs['Geometry'], group_output.inputs['Geometry'])
+            print("✅ Connected Group Input/Output for modifier interface")
+        except Exception as e:
+            print(f"⚠️ Failed to connect Group I/O: {e}")
+        
+        print(f"✅ Created SESSION 42 working node group with {len(node_group.nodes)} nodes, {len(node_group.links)} links")
+        return node_group
+    
+    def connect_canvas_to_node_group(self, node_group, canvas):
+        """Connect canvas using SESSION 42 proven method"""
+        img_tex_node = node_group.nodes.get("Unified_Canvas_Sampler")
+        if img_tex_node and 'Image' in img_tex_node.inputs:
+            img_tex_node.inputs['Image'].default_value = canvas
+            print(f"✅ Connected canvas to {img_tex_node.name}")
+            return True
+        else:
+            print("❌ Image Texture node or Image input not found")
+            return False
     
     def setup_painting_workspace(self, context, canvas):
         """Setup split workspace for painting - EXISTING WORKING CODE"""
@@ -463,133 +905,11 @@ class ONEILL_OT_StartTerrainPainting(Operator):
             
         return False
 
-# ========================= PAINT DETECTION OPERATOR =========================
-
-class ONEILL_OT_DetectPaintApplyPreviews(Operator):
-    """Enhanced paint detection with Session 10 integration and UV region sampling"""
-    bl_idname = "oneill.detect_paint_apply_previews"
-    bl_label = "🔍 Detect Paint & Apply Previews"
-    bl_options = {'REGISTER', 'UNDO'}
-    
-    def execute(self, context):
-        props = context.scene.oneill_props
-        
-        # Check if unified canvas exists
-        canvas_name = 'oneill_terrain_canvas'
-        if canvas_name not in bpy.data.images:
-            self.report({'ERROR'}, "Unified canvas not found. Start terrain painting first.")
-            return {'CANCELLED'}
-        
-        # Find all flat objects
-        flat_objects = [obj for obj in bpy.data.objects if obj.get("oneill_flat")]
-        if not flat_objects:
-            self.report({'ERROR'}, "No flat objects found for paint detection")
-            return {'CANCELLED'}
-        
-        # Sort objects by X position for consistent UV region mapping
-        flat_objects.sort(key=lambda obj: obj.location.x)
-        
-        canvas = bpy.data.images[canvas_name]
-        preview_system = GlobalPreviewDisplacementSystem()
-        processed_count = 0
-        
-        print(f"\n🎨 UV Region Sampling for {len(flat_objects)} objects from unified canvas...")
-        
-        # Process each object with its specific UV region
-        for obj_index, obj in enumerate(flat_objects):
-            try:
-                # Sample this object's UV region from unified canvas
-                detected_biomes = self.sample_canvas_region_for_object(obj_index, canvas)
-                
-                if detected_biomes:
-                    # Apply the most prominent biome as preview
-                    main_biome = max(detected_biomes, key=detected_biomes.get)
-                    preview_system.create_biome_preview(obj, main_biome)
-                    processed_count += 1
-                    print(f"✅ Object {obj_index + 1} ({obj.name}): Applied {main_biome} preview")
-                else:
-                    print(f"⚠️ Object {obj_index + 1} ({obj.name}): No biomes detected in UV region")
-            except Exception as e:
-                print(f"❌ Object {obj_index + 1} ({obj.name}): Error processing UV region - {e}")
-        
-        self.report({'INFO'}, f"Applied previews to {processed_count}/{len(flat_objects)} objects")
-        return {'FINISHED'}
-    
-    def sample_canvas_region_for_object(self, object_index, canvas):
-        """Sample the UV-mapped region of unified canvas for a specific flat object"""
-        canvas_width, canvas_height = canvas.size
-        pixels = list(canvas.pixels)
-        
-        # Calculate UV region for this object (each object gets 1/12th of canvas width)
-        num_objects = 12  # Total flat objects
-        u_start = object_index / num_objects  # 0.000, 0.083, 0.167, etc.
-        u_end = (object_index + 1) / num_objects
-        
-        # Convert UV coordinates to pixel coordinates
-        pixel_x_start = int(u_start * canvas_width)
-        pixel_x_end = int(u_end * canvas_width)
-        
-        print(f"  Object {object_index + 1}: UV region {u_start:.3f}-{u_end:.3f} → pixels {pixel_x_start}-{pixel_x_end}")
-        
-        # Sample colors within this UV region
-        return self.analyze_canvas_colors(pixels, canvas_width, canvas_height, 
-                                        pixel_x_start, pixel_x_end)
-    
-    def analyze_canvas_colors(self, canvas_pixels, canvas_width, canvas_height, 
-                            pixel_x_start, pixel_x_end):
-        """Analyze canvas region to determine dominant biome"""
-        biome_colors = {
-            'MOUNTAINS': (0.5, 0.5, 0.5),
-            'OCEAN': (0.1, 0.3, 0.8),
-            'ARCHIPELAGO': (0.2, 0.8, 0.9),
-            'CANYONS': (0.8, 0.4, 0.2),
-            'HILLS': (0.4, 0.8, 0.3),
-            'DESERT': (0.9, 0.8, 0.4),
-        }
-        
-        detected_biomes = {}
-        sample_count = 0
-        
-        # Sample pixels within the X range, across the full Y range
-        sample_step_x = max(1, (pixel_x_end - pixel_x_start) // 20)  # 20 samples across width
-        sample_step_y = max(1, canvas_height // 10)  # 10 samples across height
-        
-        for x in range(pixel_x_start, pixel_x_end, sample_step_x):
-            for y in range(0, canvas_height, sample_step_y):
-                pixel_idx = (y * canvas_width + x) * 4
-                
-                if pixel_idx + 2 < len(canvas_pixels):
-                    pixel_color = (canvas_pixels[pixel_idx], 
-                                 canvas_pixels[pixel_idx + 1], 
-                                 canvas_pixels[pixel_idx + 2])
-                    
-                    # Skip black/unpainted pixels
-                    if sum(pixel_color) < 0.1:
-                        continue
-                    
-                    sample_count += 1
-                    
-                    # Find closest biome color
-                    closest_biome = None
-                    min_distance = float('inf')
-                    
-                    for biome, color in biome_colors.items():
-                        distance = sum((a - b) ** 2 for a, b in zip(pixel_color, color)) ** 0.5
-                        if distance < min_distance and distance < 0.3:  # Tolerance
-                            min_distance = distance
-                            closest_biome = biome
-                    
-                    if closest_biome:
-                        detected_biomes[closest_biome] = detected_biomes.get(closest_biome, 0) + 1
-        
-        print(f"    Sampled {sample_count} painted pixels, detected biomes: {detected_biomes}")
-        return detected_biomes
-
 # ========================= UI PANEL =========================
 
 class ONEILL_PT_MainPanel(Panel):
-    """Main panel with Session 40 functionality"""
-    bl_label = "O'Neill Terrain Generator - Session 40 Restored"
+    """Main panel with unified canvas terrain system"""
+    bl_label = "O'Neill Terrain Generator - Session 49 Clean"
     bl_idname = "ONEILL_PT_main_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -601,7 +921,7 @@ class ONEILL_PT_MainPanel(Panel):
         
         # Header
         box = layout.box()
-        box.label(text="Session 40 Functionality Restored", icon='INFO')
+        box.label(text="Pure Canvas Terrain System", icon='INFO')
         
         if props.painting_mode:
             paint_status_box = box.box()
@@ -651,14 +971,15 @@ class ONEILL_PT_MainPanel(Panel):
         
         layout.separator()
         
-        # Step 4: Terrain Painting with AUTO-PREVIEW
+        # Step 4: Canvas Terrain Painting (with automatic auto-preview)
         paint_box = layout.box()
-        paint_box.label(text="Step 4: Terrain Painting (AUTO-PREVIEW)", icon='BRUSH_DATA')
+        paint_box.label(text="Step 4: Canvas Terrain Painting", icon='BRUSH_DATA')
         
         if not props.painting_mode:
             paint_box.operator("oneill.start_terrain_painting", 
-                             text="🎨 Start Terrain Painting (AUTO-PREVIEW)", 
+                             text="🎨 Start Canvas Painting", 
                              icon='BRUSH_DATA')
+            paint_box.label(text="Auto-preview will activate automatically", icon='INFO')
         else:
             # EXISTING WORKING CODE: Biome selection UI when painting mode active
             paint_box.label(text="🎨 PAINTING MODE ACTIVE", icon='CHECKMARK')
@@ -709,6 +1030,64 @@ class ONEILL_PT_MainPanel(Panel):
 # ========================= REGISTRATION =========================
 
 # ========================= BIOME SELECTION OPERATOR =========================
+
+class ONEILL_OT_ApplyUVMappingFix(Operator):
+    """Manually apply Session 56 UV mapping fix to existing flat objects"""
+    bl_idname = "oneill.apply_uv_mapping_fix"
+    bl_label = "Apply UV Mapping Fix"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        flat_objects = [obj for obj in bpy.data.objects if obj.get("oneill_flat")]
+        if not flat_objects:
+            self.report({'ERROR'}, "No flat objects found")
+            return {'CANCELLED'}
+        
+        # Apply the UV mapping fix
+        sorted_objects = sorted(flat_objects, key=lambda obj: obj.location.x)
+        total_objects = len(sorted_objects)
+        
+        for i, obj in enumerate(sorted_objects):
+            try:
+                mesh = obj.data
+                if not mesh.uv_layers:
+                    continue
+                
+                uv_layer = mesh.uv_layers['UVMap']
+                
+                # Calculate UV ranges - each object gets exactly 1/total_objects of canvas width
+                u_start = i / total_objects
+                u_end = (i + 1) / total_objects
+                u_width = u_end - u_start
+                
+                # Get current UV range
+                current_us = [uv_layer.data[loop_index].uv[0] for loop_index in range(len(uv_layer.data))]
+                current_u_min = min(current_us) if current_us else 0.0
+                current_u_max = max(current_us) if current_us else 1.0
+                current_u_range = current_u_max - current_u_min
+                
+                # Remap UV coordinates
+                for poly in mesh.polygons:
+                    for loop_index in poly.loop_indices:
+                        current_uv = uv_layer.data[loop_index].uv
+                        local_u = current_uv[0]
+                        local_v = current_uv[1]
+                        
+                        if current_u_range > 0:
+                            normalized_u = (local_u - current_u_min) / current_u_range
+                        else:
+                            normalized_u = 0.0
+                        
+                        global_u = u_start + (normalized_u * u_width)
+                        uv_layer.data[loop_index].uv = (global_u, local_v)
+                
+                mesh.update()
+                
+            except Exception as e:
+                print(f"Failed to fix UV mapping for {obj.name}: {e}")
+        
+        self.report({'INFO'}, f"Applied UV mapping fix to {len(flat_objects)} objects")
+        return {'FINISHED'}
 
 class ONEILL_OT_SelectPaintingBiome(Operator):
     """Select biome and set brush color for painting - EXISTING WORKING CODE"""
@@ -762,8 +1141,8 @@ classes = [
     ONEILL_OT_UnwrapToFlat,
     ONEILL_OT_CreateHeightmaps,
     ONEILL_OT_StartTerrainPainting,
+    ONEILL_OT_ApplyUVMappingFix,
     ONEILL_OT_SelectPaintingBiome,
-    ONEILL_OT_DetectPaintApplyPreviews,
     ONEILL_PT_MainPanel,
 ]
 
@@ -784,17 +1163,17 @@ def register():
     # Add scene properties
     bpy.types.Scene.oneill_props = bpy.props.PointerProperty(type=OneillProperties)
     
-    # Initialize global preview system
-    bpy.types.Scene.oneill_preview_system = GlobalPreviewDisplacementSystem()
+    # Initialize unified terrain system
+    bpy.types.Scene.oneill_terrain_system = UnifiedCanvasTerrainSystem()
     
-    print("✅ SESSION 40 UNIFIED SYSTEM INTEGRATION COMPLETE!")
-    print("🎯 Auto-preview button now available in main script")
-    print("🔗 Canvas-to-3D workflow restored from live Blender scene")
+    print("✅ SESSION 49 CLEANUP COMPLETE!")
+    print("🎨 Pure unified canvas-to-terrain system active")
+    print("🔍 No paint detection needed - direct canvas response")
 
 def cleanup_existing_registrations():
     """Clean up any existing registrations to prevent conflicts"""
     # Remove scene properties first
-    scene_props = ['oneill_props', 'oneill_preview_system']
+    scene_props = ['oneill_props', 'oneill_terrain_system']
     
     for prop_name in scene_props:
         if hasattr(bpy.types.Scene, prop_name):
@@ -831,8 +1210,8 @@ def unregister():
     if hasattr(bpy.types.Scene, 'oneill_props'):
         del bpy.types.Scene.oneill_props
         
-    if hasattr(bpy.types.Scene, 'oneill_preview_system'):
-        del bpy.types.Scene.oneill_preview_system
+    if hasattr(bpy.types.Scene, 'oneill_terrain_system'):
+        del bpy.types.Scene.oneill_terrain_system
     
     # Unregister classes
     for cls in reversed(classes):
