@@ -13,6 +13,18 @@ import random
 from bpy.types import Operator, Panel, PropertyGroup
 from bpy.props import FloatProperty, IntProperty, BoolProperty, EnumProperty, PointerProperty
 
+# Import stroke-based Y-wrapping system
+try:
+    from .modules import stroke_based_y_wrapping
+    print("✅ Stroke-based Y-wrapping module imported successfully")
+except ImportError:
+    try:
+        import modules.stroke_based_y_wrapping as stroke_based_y_wrapping
+        print("✅ Stroke-based Y-wrapping module imported (direct path)")
+    except ImportError as e:
+        print(f"⚠️ Could not import stroke-based Y-wrapping: {e}")
+        stroke_based_y_wrapping = None
+
 # ========================= SESSION 55 AUTO-PREVIEW SYSTEM INTEGRATION =========================
 
 class WorkingAutoPreviewSystem:
@@ -584,7 +596,7 @@ class ONEILL_OT_StartTerrainPainting(Operator):
         # CRITICAL: Apply Session 56 UV mapping fix BEFORE creating canvas
         self.apply_session_56_uv_mapping_fix(flat_objects)
             
-        # Create combined canvas
+        # Create combined canvas with Y-axis tiling guides
         canvas_name = "oneill_terrain_canvas"
         if canvas_name in bpy.data.images:
             bpy.data.images.remove(bpy.data.images[canvas_name])
@@ -596,10 +608,8 @@ class ONEILL_OT_StartTerrainPainting(Operator):
             alpha=False
         )
         
-        # Initialize canvas with BLACK color
-        pixels = [0.0, 0.0, 0.0, 1.0] * (2400 * 628)
-        canvas.pixels = pixels
-        canvas.update()
+        # Initialize canvas with BLACK color and Y-axis tiling guides
+        self.setup_canvas_with_tiling_guides(canvas)
         
         # Setup painting workspace
         self.setup_painting_workspace(context, canvas)
@@ -614,14 +624,14 @@ class ONEILL_OT_StartTerrainPainting(Operator):
         return {'FINISHED'}
     
     def apply_session_56_uv_mapping_fix(self, flat_objects):
-        """Apply Session 56 UV mapping fix - each object gets sequential canvas portion"""
-        print("\n=== APPLYING SESSION 56 UV MAPPING FIX ===")
+        """Apply Session 56 UV mapping fix with Y-axis tiling - each object gets sequential canvas portion"""
+        print("\n=== APPLYING SESSION 56 UV MAPPING FIX WITH Y-AXIS TILING ===")
         
         # Sort objects by X position to match Session 56 approach
         sorted_objects = sorted(flat_objects, key=lambda obj: obj.location.x)
         total_objects = len(sorted_objects)
         
-        print(f"Fixing UV mapping for {total_objects} objects...")
+        print(f"Fixing UV mapping for {total_objects} objects with Y-axis tiling...")
         
         for i, obj in enumerate(sorted_objects):
             try:
@@ -637,20 +647,31 @@ class ONEILL_OT_StartTerrainPainting(Operator):
                 u_end = (i + 1) / total_objects
                 u_width = u_end - u_start
                 
-                print(f"  Object {i+1} ({obj.name}): U=[{u_start:.6f}, {u_end:.6f}]")
+                print(f"  Object {i+1} ({obj.name}): U=[{u_start:.6f}, {u_end:.6f}] with Y-tiling")
                 
                 # Get the current UV range to normalize from
                 current_us = [uv_layer.data[loop_index].uv[0] for loop_index in range(len(uv_layer.data))]
+                current_vs = [uv_layer.data[loop_index].uv[1] for loop_index in range(len(uv_layer.data))]
+                
                 current_u_min = min(current_us) if current_us else 0.0
                 current_u_max = max(current_us) if current_us else 1.0
                 current_u_range = current_u_max - current_u_min
                 
-                # Remap all UV coordinates to the correct canvas portion
+                current_v_min = min(current_vs) if current_vs else 0.0
+                current_v_max = max(current_vs) if current_vs else 1.0
+                current_v_range = current_v_max - current_v_min
+                
+                # PHASE 1 FIX: Remove Y-axis padding for full edge-to-edge canvas access
+                # OLD: tiling_overlap = 0.05, v_scale = 1.05 (created 5% boundaries)
+                # NEW: v_scale = 1.0 (full 0.0-1.0 range utilization)
+                v_scale = 1.0  # Full edge-to-edge canvas access
+                
+                # Remap all UV coordinates to the correct canvas portion with Y-tiling
                 for poly in mesh.polygons:
                     for loop_index in poly.loop_indices:
                         current_uv = uv_layer.data[loop_index].uv
                         local_u = current_uv[0]  # Current U coordinate
-                        local_v = current_uv[1]  # V coordinate (keep as-is)
+                        local_v = current_uv[1]  # Current V coordinate
                         
                         # Normalize the local U coordinate (0-1 within object)
                         if current_u_range > 0:
@@ -658,30 +679,89 @@ class ONEILL_OT_StartTerrainPainting(Operator):
                         else:
                             normalized_u = 0.0
                         
+                        # Normalize the local V coordinate (0-1 within object)
+                        if current_v_range > 0:
+                            normalized_v = (local_v - current_v_min) / current_v_range
+                        else:
+                            normalized_v = 0.0
+                        
                         # Map to correct portion of unified canvas
                         global_u = u_start + (normalized_u * u_width)
-                        global_v = local_v  # V stays the same
+                        
+                        # FIXED: Full 0.0-1.0 range utilization (no more 5% boundaries)
+                        global_v = normalized_v * v_scale
                         
                         uv_layer.data[loop_index].uv = (global_u, global_v)
                 
                 # Update mesh
                 mesh.update()
-                print(f"✅ Fixed UV mapping for {obj.name} (portion {i+1}/{total_objects})")
+                print(f"✅ Fixed UV mapping for {obj.name} (portion {i+1}/{total_objects}) with Y-tiling")
                 
             except Exception as e:
                 print(f"❌ Failed to fix UV mapping for {obj.name}: {e}")
         
-        print(f"✅ SESSION 56 UV mapping fix complete - unified canvas layout applied")
+        print(f"✅ SESSION 62 COMPLETE: Full edge-to-edge canvas access + smart Y-wrapping enabled")
+    
+    def setup_canvas_with_tiling_guides(self, canvas):
+        """Initialize canvas with Y-axis tiling visual guides"""
+        width = canvas.size[0]  # 2400
+        height = canvas.size[1]  # 628
+        
+        # Create base black canvas
+        pixels = [0.0, 0.0, 0.0, 1.0] * (width * height)
+        
+        # Calculate tiling zones
+        tiling_overlap = 0.05  # 5% overlap (same as UV mapping)
+        main_height = int(height / (1.0 + tiling_overlap))  # ~597 pixels
+        tiling_zone_height = height - main_height  # ~31 pixels
+        
+        # Add visual guides for Y-axis tiling
+        guide_color = [0.1, 0.1, 0.2, 1.0]  # Dark blue for guides
+        tiling_color = [0.05, 0.1, 0.15, 1.0]  # Slightly lighter for tiling zone
+        
+        print(f"Canvas setup: {width}x{height}, main area: {main_height}px, tiling zone: {tiling_zone_height}px")
+        
+        for y in range(height):
+            for x in range(width):
+                pixel_index = (y * width + x) * 4
+                
+                # Tiling zone at bottom (will wrap to top)
+                if y >= main_height:
+                    pixels[pixel_index:pixel_index+4] = tiling_color
+                
+                # Add subtle vertical guides every 200 pixels (object boundaries)
+                elif x % 200 == 0:
+                    pixels[pixel_index:pixel_index+4] = guide_color
+                
+                # Add horizontal guide at main/tiling boundary
+                elif y == main_height - 1 or y == main_height - 2:
+                    pixels[pixel_index:pixel_index+4] = guide_color
+                
+                # Add subtle horizontal center line
+                elif y == height // 2 or y == height // 2 + 1:
+                    if x % 4 == 0:  # Dotted line
+                        pixels[pixel_index:pixel_index+4] = [0.05, 0.05, 0.1, 1.0]
+        
+        # Apply pixels to canvas
+        canvas.pixels = pixels
+        canvas.update()
+        
+        print("✅ Canvas initialized with Y-axis tiling guides")
+        print("📋 Tiling Guide Legend:")
+        print("   • Dark blue bottom area: Y-axis tiling zone (wraps to top)")
+        print("   • Vertical lines: Object boundaries (X-axis segments)")
+        print("   • Horizontal line: Main/tiling boundary")
+        print("   • Center dots: Canvas center reference")
     
     def setup_canvas_monitor(self, flat_objects, canvas):
-        """Set up canvas monitoring to detect when user starts painting"""
+        """Set up simplified canvas monitoring for auto-preview activation"""
         # Store initial canvas state
         initial_pixels = list(canvas.pixels[:])
         auto_preview_activated = [False]  # Use list for mutable reference
         
         def check_canvas_for_painting():
             try:
-                # Check if canvas has changed from initial black state
+                # Check if canvas has changed from initial state (SIMPLE CHECK ONLY)
                 current_pixels = canvas.pixels[:]
                 
                 # Look for any non-black pixels (painting detected)
@@ -696,10 +776,11 @@ class ONEILL_OT_StartTerrainPainting(Operator):
                     print("✅ Painting detected! Activating auto-preview system...")
                     auto_preview_activated[0] = True
                     
-                    # NOW activate the auto-preview system
+                    # Activate the auto-preview system
                     success = self.apply_session_42_auto_preview(flat_objects, canvas)
                     if success:
                         print("✅ Auto-preview system activated successfully")
+                        
                         # Force viewport update
                         bpy.context.view_layer.update()
                         for area in bpy.context.screen.areas:
@@ -708,10 +789,10 @@ class ONEILL_OT_StartTerrainPainting(Operator):
                     else:
                         print("❌ Auto-preview activation failed")
                     
-                    return None  # Stop monitoring after activation
+                    return None  # Stop this monitor after activation
                 
                 # Continue monitoring if no painting detected yet
-                return 0.5  # Check again in 0.5 seconds
+                return 1.0  # Check less frequently to reduce interference
                 
             except Exception as e:
                 print(f"❌ Canvas monitoring error: {e}")
@@ -719,7 +800,10 @@ class ONEILL_OT_StartTerrainPainting(Operator):
         
         # Start the canvas monitor
         bpy.app.timers.register(check_canvas_for_painting, first_interval=1.0)
-        print("✅ Canvas monitor started - waiting for painting activity...")
+        print("✅ Simplified canvas monitor started - waiting for painting activity...")
+    
+    # REMOVED: update_canvas_tiling_visualization method was causing interference
+    # Replaced with stroke_based_y_wrapping module for non-interfering Y-axis wrapping
     
     def apply_session_42_auto_preview(self, flat_objects, canvas):
         """Apply the exact SESSION 42 working auto-preview system automatically"""
@@ -763,13 +847,16 @@ class ONEILL_OT_StartTerrainPainting(Operator):
         return applied_count > 0
     
     def get_or_create_session_42_node_group(self):
-        """Get existing or create SESSION 42 working node group"""
+        """Get existing or create SESSION 42 working node group with Y-axis tiling support"""
         node_group_name = "Unified_Multi_Biome_Terrain.001"
         
         # Check if it already exists
         if node_group_name in bpy.data.node_groups:
             print(f"✅ Using existing working node group: {node_group_name}")
-            return bpy.data.node_groups[node_group_name]
+            # Update existing node group for Y-axis tiling
+            node_group = bpy.data.node_groups[node_group_name]
+            self.configure_y_axis_tiling(node_group)
+            return node_group
         
         # Create the exact SESSION 42 working node group
         print(f"Creating SESSION 42 working node group: {node_group_name}")
@@ -801,6 +888,8 @@ class ONEILL_OT_StartTerrainPainting(Operator):
         canvas_sampler = node_group.nodes.new('GeometryNodeImageTexture')
         canvas_sampler.name = "Unified_Canvas_Sampler"
         canvas_sampler.location = (-500.0, -200.0)
+        # SESSION 62 PHASE 2: Configure for Y-axis wrapping
+        canvas_sampler.extension = 'REPEAT'  # Enable texture wrapping
         
         separate_xyz = node_group.nodes.new('ShaderNodeSeparateXYZ')
         separate_xyz.name = "Separate XYZ"
@@ -853,8 +942,18 @@ class ONEILL_OT_StartTerrainPainting(Operator):
         except Exception as e:
             print(f"⚠️ Failed to connect Group I/O: {e}")
         
-        print(f"✅ Created SESSION 42 working node group with {len(node_group.nodes)} nodes, {len(node_group.links)} links")
+        print(f"✅ Created SESSION 42 working node group with Y-tiling: {len(node_group.nodes)} nodes, {len(node_group.links)} links")
         return node_group
+    
+    def configure_y_axis_tiling(self, node_group):
+        """Configure existing node group for Y-axis tiling"""
+        canvas_sampler = node_group.nodes.get("Unified_Canvas_Sampler")
+        if canvas_sampler:
+            # SESSION 62 PHASE 2: Enable REPEAT extension for Y-axis wrapping
+            canvas_sampler.extension = 'REPEAT'
+            print("✅ SESSION 62 PHASE 2: Y-axis wrapping enabled via REPEAT extension")
+        else:
+            print("⚠️ Canvas sampler node not found for Y-axis tiling configuration")
     
     def connect_canvas_to_node_group(self, node_group, canvas):
         """Connect canvas using SESSION 42 proven method"""
@@ -983,7 +1082,41 @@ class ONEILL_PT_MainPanel(Panel):
         else:
             # EXISTING WORKING CODE: Biome selection UI when painting mode active
             paint_box.label(text="🎨 PAINTING MODE ACTIVE", icon='CHECKMARK')
-            paint_box.label(text=f"Current Biome: {get_biome_display_name(props.current_biome)}")
+            
+            # SESSION 59: Natural Stroke Wrapping Controls
+            wrap_box = paint_box.box()
+            wrap_box.label(text="🌟 Revolutionary Natural Stroke Wrapping", icon='MOD_WAVE')
+            
+            # Check if natural wrapping is active
+            if stroke_based_y_wrapping:
+                wrapper = stroke_based_y_wrapping.get_stroke_wrapper()
+                is_natural_active = wrapper and wrapper.natural_wrapping_active
+                
+                if not is_natural_active:
+                    wrap_box.operator("oneill.start_natural_stroke_wrapping", 
+                                    text="🎨 Start Natural Y-Wrapping", 
+                                    icon='PLAY')
+                    wrap_box.label(text="Paint off Y-edges for automatic wrapping!", icon='INFO')
+                else:
+                    status_row = wrap_box.row()
+                    status_row.label(text="✨ NATURAL WRAPPING ACTIVE", icon='CHECKMARK')
+                    wrap_box.operator("oneill.stop_natural_stroke_wrapping", 
+                                    text="⏹️ Stop Natural Wrapping", 
+                                    icon='PAUSE')
+                    
+                    wrap_box.separator()
+                    info_box = wrap_box.box()
+                    info_box.scale_y = 0.8
+                    info_box.label(text="🎯 Revolutionary Feature Active!", icon='INFO')
+                    info_box.label(text="• Paint strokes off top edge → auto-wrap to bottom")
+                    info_box.label(text="• Paint strokes off bottom edge → auto-wrap to top")
+                    info_box.label(text="• True cylindrical surface painting!")
+            else:
+                wrap_box.label(text="⚠️ Natural wrapping module not available", icon='ERROR')
+            
+            paint_box.separator()
+            
+            paint_box.label(text=f"Current Biome: {get_biome_display_name(props.current_biome)}"))
             
             # Biome selection buttons - EXISTING WORKING CODE
             biome_box = paint_box.box()
@@ -1032,9 +1165,9 @@ class ONEILL_PT_MainPanel(Panel):
 # ========================= BIOME SELECTION OPERATOR =========================
 
 class ONEILL_OT_ApplyUVMappingFix(Operator):
-    """Manually apply Session 56 UV mapping fix to existing flat objects"""
+    """Manually apply Session 56 UV mapping fix with Y-axis tiling to existing flat objects"""
     bl_idname = "oneill.apply_uv_mapping_fix"
-    bl_label = "Apply UV Mapping Fix"
+    bl_label = "Apply UV Mapping Fix (Y-Tiling)"
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
@@ -1043,7 +1176,7 @@ class ONEILL_OT_ApplyUVMappingFix(Operator):
             self.report({'ERROR'}, "No flat objects found")
             return {'CANCELLED'}
         
-        # Apply the UV mapping fix
+        # Apply the UV mapping fix with Y-axis tiling
         sorted_objects = sorted(flat_objects, key=lambda obj: obj.location.x)
         total_objects = len(sorted_objects)
         
@@ -1060,34 +1193,129 @@ class ONEILL_OT_ApplyUVMappingFix(Operator):
                 u_end = (i + 1) / total_objects
                 u_width = u_end - u_start
                 
-                # Get current UV range
+                # Get current UV range for both U and V
                 current_us = [uv_layer.data[loop_index].uv[0] for loop_index in range(len(uv_layer.data))]
+                current_vs = [uv_layer.data[loop_index].uv[1] for loop_index in range(len(uv_layer.data))]
+                
                 current_u_min = min(current_us) if current_us else 0.0
                 current_u_max = max(current_us) if current_us else 1.0
                 current_u_range = current_u_max - current_u_min
                 
-                # Remap UV coordinates
+                current_v_min = min(current_vs) if current_vs else 0.0
+                current_v_max = max(current_vs) if current_vs else 1.0
+                current_v_range = current_v_max - current_v_min
+                
+                # PHASE 1 FIX: Full edge-to-edge canvas access
+                # Fixed to eliminate 5% boundaries
+                v_scale = 1.0  # Full 0.0-1.0 range utilization
+                
+                # Remap UV coordinates with Y-axis tiling
                 for poly in mesh.polygons:
                     for loop_index in poly.loop_indices:
                         current_uv = uv_layer.data[loop_index].uv
                         local_u = current_uv[0]
                         local_v = current_uv[1]
                         
+                        # Normalize U coordinate
                         if current_u_range > 0:
                             normalized_u = (local_u - current_u_min) / current_u_range
                         else:
                             normalized_u = 0.0
                         
+                        # Normalize V coordinate
+                        if current_v_range > 0:
+                            normalized_v = (local_v - current_v_min) / current_v_range
+                        else:
+                            normalized_v = 0.0
+                        
+                        # Apply FIXED mapping with full range utilization
                         global_u = u_start + (normalized_u * u_width)
-                        uv_layer.data[loop_index].uv = (global_u, local_v)
+                        global_v = normalized_v * v_scale  # Full 0.0-1.0 range
+                        
+                        uv_layer.data[loop_index].uv = (global_u, global_v)
                 
                 mesh.update()
                 
             except Exception as e:
                 print(f"Failed to fix UV mapping for {obj.name}: {e}")
         
-        self.report({'INFO'}, f"Applied UV mapping fix to {len(flat_objects)} objects")
+        self.report({'INFO'}, f"SESSION 62: Edge-to-edge painting + smart Y-wrapping applied to {len(flat_objects)} objects")
         return {'FINISHED'}
+
+# REMOVED: Manual Y-wrapping operator - Y-axis wrapping is now automatic
+# Y-axis wrapping happens automatically when painting is detected
+
+class ONEILL_OT_EnhanceYWrapping(Operator):
+    """SESSION 62: Enhance Y-wrapping beyond 1% limitation - implement advanced wrapping"""
+    bl_idname = "oneill.enhance_y_wrapping"
+    bl_label = "🔄 Enhance Y-Wrapping"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        print("=== SESSION 62: ENHANCING Y-WRAPPING BEYOND 1% LIMITATION ===")
+        
+        # Get canvas and flat objects
+        canvas = bpy.data.images.get("oneill_terrain_canvas")
+        flat_objects = [obj for obj in bpy.data.objects if obj.get("oneill_flat")]
+        
+        if not canvas or not flat_objects:
+            self.report({'ERROR'}, "Canvas or flat objects not found")
+            return {'CANCELLED'}
+        
+        enhanced_count = 0
+        
+        # Method 1: Configure texture coordinate wrapping more aggressively
+        for obj in flat_objects:
+            displacement_mods = [mod for mod in obj.modifiers if mod.type == 'DISPLACE']
+            for mod in displacement_mods:
+                if mod.texture and mod.texture.type == 'IMAGE':
+                    # Enhanced texture wrapping configuration
+                    mod.texture.extension = 'REPEAT'
+                    
+                    # Try to access texture coordinate settings if available
+                    if hasattr(mod.texture, 'repeat_x'):
+                        mod.texture.repeat_x = 1
+                    if hasattr(mod.texture, 'repeat_y'):
+                        mod.texture.repeat_y = 1
+                    
+                    enhanced_count += 1
+        
+        # Method 2: Update geometry node configuration for better wrapping
+        working_node_group = bpy.data.node_groups.get("Unified_Multi_Biome_Terrain.001")
+        if working_node_group:
+            canvas_sampler = working_node_group.nodes.get("Unified_Canvas_Sampler")
+            if canvas_sampler:
+                # Ensure REPEAT is enabled
+                canvas_sampler.extension = 'REPEAT'
+                
+                # Try to configure interpolation for smoother wrapping
+                if hasattr(canvas_sampler, 'interpolation'):
+                    canvas_sampler.interpolation = 'Linear'  # Smoother transitions
+                
+                enhanced_count += 1
+        
+        # Method 3: Enhanced stroke-based Y-wrapping integration
+        if stroke_based_y_wrapping:
+            try:
+                wrapper = stroke_based_y_wrapping.get_stroke_wrapper()
+                if wrapper and canvas:
+                    # Set up enhanced wrapping parameters
+                    wrapper.setup_y_wrapping_for_canvas(canvas)
+                    wrapper.boundary_threshold = 10  # Increased from 5 pixels
+                    
+                    print("✅ Enhanced stroke-based Y-wrapping configuration")
+                    enhanced_count += 1
+            except Exception as e:
+                print(f"⚠️ Stroke wrapping enhancement failed: {e}")
+        
+        if enhanced_count > 0:
+            self.report({'INFO'}, f"Enhanced Y-wrapping: {enhanced_count} configurations updated")
+            print(f"✅ SESSION 62: Enhanced Y-wrapping - {enhanced_count} improvements applied")
+            print(f"Y-wrapping should now extend beyond 1% limitation")
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, "No enhancements could be applied")
+            return {'CANCELLED'}
 
 class ONEILL_OT_SelectPaintingBiome(Operator):
     """Select biome and set brush color for painting - EXISTING WORKING CODE"""
@@ -1142,6 +1370,7 @@ classes = [
     ONEILL_OT_CreateHeightmaps,
     ONEILL_OT_StartTerrainPainting,
     ONEILL_OT_ApplyUVMappingFix,
+    ONEILL_OT_EnhanceYWrapping,
     ONEILL_OT_SelectPaintingBiome,
     ONEILL_PT_MainPanel,
 ]
@@ -1165,6 +1394,15 @@ def register():
     
     # Initialize unified terrain system
     bpy.types.Scene.oneill_terrain_system = UnifiedCanvasTerrainSystem()
+    
+    # Register stroke-based Y-wrapping module
+    if stroke_based_y_wrapping:
+        stroke_based_y_wrapping.register()
+        print("✅ Stroke-based Y-wrapping system registered")
+    
+    print("✅ SESSION 58 Y-AXIS TILING DEBUG COMPLETE!")
+    print("🎨 Non-interfering canvas system active")
+    print("🔄 Stroke-based Y-wrapping replaces problematic real-time monitoring")
     
     print("✅ SESSION 49 CLEANUP COMPLETE!")
     print("🎨 Pure unified canvas-to-terrain system active")
@@ -1205,6 +1443,11 @@ def cleanup_existing_registrations():
 def unregister():
     """Unregister all addon components"""
     print("📤 Unregistering O'Neill Terrain Generator")
+    
+    # Unregister stroke-based Y-wrapping module first
+    if stroke_based_y_wrapping:
+        stroke_based_y_wrapping.unregister()
+        print("⏹️ Stroke-based Y-wrapping system unregistered")
     
     # Remove scene properties
     if hasattr(bpy.types.Scene, 'oneill_props'):
